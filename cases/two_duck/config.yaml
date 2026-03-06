@@ -1,0 +1,44 @@
+device: "cuda"
+seed: 0
+example_name: "two_duck"
+output_folder: "result/two_duck"
+data_path: "cases/two_duck/"
+
+segmenter: "sam2"
+all_object_points: [[[175, 292, 1]], [[325, 295, 1]]]
+all_object_masks_idx: [0, 0]
+
+obj_kp_matching: true
+stitched_inpainting: false
+
+logging_level: "details"
+debug: true
+
+mesh_resize_factor: 1.0
+
+dt: 0.1
+substeps: 100
+simulated_frames_num: 81
+frame_steps: 1
+material_type: ["rigid", "rigid"]
+
+rigid_rho: 1000.0
+rigid_friction: 0.01
+plane_friction: 0.01
+rigid_coup_friction: 1.0
+rigid_coup_softness: 0.002
+
+gravity: -9.8
+
+alpha_threshold: 0.99
+
+original_geometry_downsample: false
+target_faces: 10000
+use_rgb_frontside: false
+
+crop_start: 176
+
+num_output_frames: 21
+denoising_step_list: [800, 600, 400, 200]
+mask_dropin_step: -1
+vgen_prompt: "A force from the left pushes the left plastic rigid toy duck to the right. It collides with the plastic rigid toy duck on the right and then pushes it forward, causing both plastic rigid toy ducks to move together to the right, creating ripples on the water surface."

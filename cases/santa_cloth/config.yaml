@@ -1,0 +1,55 @@
+device: "cuda"
+seed: 0
+example_name: "santa_cloth"
+output_folder: "result/santa_cloth"
+data_path: "cases/santa_cloth/"
+
+segmenter: "sam2"
+all_object_points: [[[229, 185, 1], [290, 310, 1]]] #, [[386, 454, 1], [50, 430, 1], [267, 124, 1]]]
+
+all_object_masks_idx: [0] #, 0]
+
+obj_kp_matching: true
+
+debug: false
+stitched_inpainting: true
+
+mesh_resize_factor: 0.7
+
+original_geometry_downsample: true
+target_faces: 1000
+
+fixed_area:
+- [0, 1, 0, 0.1]
+
+dt: 0.01
+substeps: 10
+simulated_frames_num: 81
+frame_steps: 2
+material_type: ["pbd_cloth"]
+
+inpainting_negative_prompt: "cloth, object"
+inpainting_prompt: "background, nothing"
+
+pbd_rho: 0.5
+pbd_gravity: -0.3
+pbd_static_friction: 0.9
+pbd_kinetic_friction: 0.2
+pbd_stretch_compliance: 0.01
+pbd_bending_compliance: 0.2
+pbd_stretch_relaxation: 0.5
+pbd_bending_relaxation: 0.05
+pbd_air_resistance: 2e-3
+
+particle_size: 0.01
+
+alpha_threshold: 0.98
+
+crop_start: 176
+fg_points_render_radius: 0.01
+
+
+num_output_frames: 21
+denoising_step_list: [750, 500, 250]
+mask_dropin_step: -1
+vgen_prompt: Wind blows the hanging clothes. The motion is gentle, continuous, and rhythmic, driven by shifting airflow. Static camera, eye-level frontal view, natural fabric movement.

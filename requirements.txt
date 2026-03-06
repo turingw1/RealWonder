@@ -1,0 +1,7 @@
+open_clip_torch
+diffusers==0.30.2
+kornia==0.8.2
+rp
+py3nvml
+ffmpeg-python
+git+https://github.com/THU-MIG/RepViT.git#subdirectory=sam

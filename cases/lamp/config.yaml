@@ -1,0 +1,49 @@
+device: "cuda"
+seed: 0
+example_name: "lamp"
+output_folder: "result/lamp"
+data_path: "cases/lamp/"
+
+segmenter: "sam2"
+all_object_points: [[[250, 207, 1], [273, 287, 1]]]
+
+all_object_masks_idx: [1]
+
+obj_kp_matching: true
+obj_kp: [[[0.2, 0.8], [0.1, 0.9]]]
+
+logging_level: "details"
+
+debug: true
+stitched_inpainting: false
+
+mesh_resize_factor: 1.0
+
+target_faces: 10000
+dt: 0.02
+substeps: 10
+simulated_frames_num: 81
+frame_steps: 1
+material_type: ["rigid"]
+
+use_primitive: true
+
+remap_depth: [1.0, 2.0]
+
+rigid_rho: 1000
+rigid_friction: 0.01
+plane_friction: 0.01
+
+gravity: -1
+
+alpha_threshold: 0.8
+
+crop_start: 200
+
+fg_points_render_radius: 0.01
+
+
+num_output_frames: 21
+denoising_step_list: [800, 500, 250]
+mask_dropin_step: -1
+vgen_prompt: "A square paper lantern is moving on river. Water surface ripples follow the motion. Twilight, cinematic realism."

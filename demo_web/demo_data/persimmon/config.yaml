@@ -1,0 +1,69 @@
+device: cuda
+seed: 0
+example_name: persimmon
+output_folder: demo_web/demo_data/persimmon/recon_tmp
+data_path: cases/persimmon
+object_id:
+- - 3
+  - 11
+- - 4
+- - 5
+  - 10
+segmenter: sam2
+all_object_points:
+- - - 260
+    - 210
+    - 1
+  - - 265
+    - 165
+    - 1
+- - - 260
+    - 300
+    - 1
+  - - 274
+    - 262
+    - 1
+- - - 260
+    - 380
+    - 1
+  - - 262
+    - 345
+    - 1
+all_object_masks_idx:
+- 0
+- 0
+- 0
+obj_kp_matching: true
+stitched_inpainting: false
+logging_level: details
+debug: true
+mesh_resize_factor: 1.0
+dt: 0.01
+substeps: 2
+simulated_frames_num: 81
+frame_steps: 2
+material_type:
+- rigid
+- rigid
+- rigid
+use_primitive: false
+rigid_rho: 1000.0
+rigid_friction: 0.01
+plane_friction: 1.0
+gravity: -9.8
+alpha_threshold: 0.99
+crop_start: 165
+fg_points_render_radius: 0.02
+original_geometry_downsample: true
+target_faces: 5000
+use_rgb_frontside: true
+num_output_frames: 21
+denoising_step_list:
+- 500
+- 250
+- 100
+mask_dropin_step: -1
+vgen_prompt: Three ripe persimmons are stacked vertically on a table. The top and
+  middle persimmons are pushed by forces and fall off the stack onto the table. The
+  bottom persimmon remains in place. The motion is natural and realistic.
+fov_x_input: 31.97744369506836

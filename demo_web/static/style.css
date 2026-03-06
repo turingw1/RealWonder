@@ -1,0 +1,518 @@
+/* RealWonder Interactive Demo — Soft Pastel Dashboard */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f0f2f7;
+    color: #3a3f4b;
+    min-height: 100vh;
+}
+
+/* Header */
+header {
+    background: #ffffff;
+    padding: 16px 32px;
+    border-bottom: 1px solid #e2e6ee;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #6b8aed;
+    letter-spacing: -0.3px;
+}
+
+.case-name {
+    font-size: 13px;
+    font-weight: 400;
+    color: #9ca3b0;
+}
+
+/* Main Layout */
+.main-layout {
+    display: flex;
+    gap: 20px;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Video Panel Card */
+.video-panel {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e8ecf2;
+}
+
+#videoCanvas {
+    width: 100%;
+    height: auto;
+    background: #e8ecf2;
+    border-radius: 10px;
+    display: block;
+}
+
+.frame-counter {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(6px);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #6b7280;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Control Panel Card */
+.control-panel {
+    width: 320px;
+    flex-shrink: 0;
+    background: #ffffff;
+    border: 1px solid #e8ecf2;
+    border-radius: 16px;
+    padding: 24px;
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.control-panel h2 {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3b0;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+
+.control-panel hr {
+    border: none;
+    border-top: 1px solid #eef0f5;
+    margin: 20px 0;
+}
+
+/* Loading */
+.loading-text {
+    color: #9ca3b0;
+    font-size: 14px;
+    font-weight: 400;
+    padding: 32px 0;
+    text-align: center;
+}
+
+/* Direction Buttons */
+.direction-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.btn-direction {
+    flex: 1;
+    padding: 14px 12px;
+    background: #f4f6fb;
+    border: 2px solid #e2e6ee;
+    border-radius: 12px;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    font-family: inherit;
+}
+
+.btn-direction:hover {
+    background: #edf0fa;
+    border-color: #c7d0e8;
+    color: #4a5568;
+}
+
+.btn-direction:active {
+    background: #e4e9f7;
+}
+
+.btn-direction.selected {
+    background: #eef2ff;
+    border-color: #6b8aed;
+    color: #6b8aed;
+    box-shadow: 0 0 0 3px rgba(107, 138, 237, 0.1);
+}
+
+.btn-direction:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Control Groups */
+.control-group {
+    margin-bottom: 14px;
+}
+
+.control-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #7a8292;
+    margin-bottom: 6px;
+}
+
+.control-group label span {
+    font-weight: 600;
+    color: #6b8aed;
+}
+
+.control-group select,
+.control-group textarea,
+.control-group input[type="range"] {
+    width: 100%;
+}
+
+select, textarea {
+    background: #f8f9fc;
+    border: 1.5px solid #e2e6ee;
+    border-radius: 10px;
+    color: #3a3f4b;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+select:focus, textarea:focus {
+    outline: none;
+    border-color: #6b8aed;
+    box-shadow: 0 0 0 3px rgba(107, 138, 237, 0.1);
+}
+
+textarea {
+    resize: vertical;
+    line-height: 1.5;
+}
+
+/* Range Slider */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: #e2e6ee;
+    border-radius: 3px;
+    outline: none;
+    margin-top: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #6b8aed;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(107, 138, 237, 0.35);
+    transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #6b8aed;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 1px 4px rgba(107, 138, 237, 0.35);
+}
+
+input[type="range"]:disabled {
+    opacity: 0.4;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0 16px;
+}
+
+.btn {
+    flex: 1;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-primary {
+    background: #6b8aed;
+    color: #ffffff;
+}
+
+.btn-primary:hover {
+    background: #5a7be0;
+}
+
+.btn-danger {
+    background: #f0f2f7;
+    color: #e07070;
+    border: 1.5px solid #f0d0d0;
+}
+
+.btn-danger:hover {
+    background: #fdf0f0;
+}
+
+.btn-secondary {
+    background: #f0f2f7;
+    color: #6b7280;
+    border: 1.5px solid #e2e6ee;
+}
+
+.btn-secondary:hover {
+    background: #e8ecf2;
+}
+
+/* Status & Progress */
+.status-bar {
+    font-size: 12px;
+    font-weight: 400;
+    color: #9ca3b0;
+    padding: 12px 0 8px;
+    border-top: 1px solid #eef0f5;
+}
+
+.progress-container {
+    width: 100%;
+    height: 6px;
+    background: #e8ecf2;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6b8aed, #8ba4f5);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 11px;
+    font-weight: 500;
+    color: #9ca3b0;
+    margin-top: 6px;
+    text-align: center;
+}
+
+/* Object select dropdown */
+#objectSelect {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+/* Per-object force group */
+.object-force-group {
+    background: #f8f9fc;
+    border: 1.5px solid #e8ecf2;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+}
+
+.object-force-group:last-child {
+    margin-bottom: 0;
+}
+
+.object-force-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a5568;
+    margin-bottom: 10px;
+}
+
+/* ---- 3D force viewer overlay ---- */
+.force-viewer-wrap {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#forceViewer3d {
+    width: 160px;
+    height: 160px;
+    border-radius: 14px;
+    background: rgba(238, 242, 255, 0.3);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 16px rgba(107, 138, 237, 0.18);
+    display: block;
+}
+
+.force-viewer-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #7a8292;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    background: rgba(238, 242, 255, 0.92);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(107, 138, 237, 0.25);
+}
+
+/* ---- Axis sliders ---- */
+.force-summary {
+    font-size: 12px;
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.force-none {
+    color: #b0b8c8;
+    background: #f4f6fb;
+}
+
+.force-active {
+    background: #eef2ff;
+    border: 1px solid #d0d9f8;
+}
+
+.force-strength {
+    font-weight: 700;
+    color: #6b8aed;
+    margin-right: 6px;
+}
+
+.force-vec {
+    color: #7a8292;
+    font-size: 11px;
+}
+
+.axis-slider-group {
+    margin-bottom: 14px;
+}
+
+.axis-slider-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.axis-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.axis-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #4a5568;
+    flex: 1;
+}
+
+.axis-value {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #6b8aed;
+    min-width: 30px;
+    text-align: right;
+}
+
+.axis-end-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #b0b8c8;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.reset-force-btn {
+    background: none;
+    border: 1px solid #e2e6ee;
+    border-radius: 7px;
+    color: #9ca3b0;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    transition: all 0.2s;
+}
+
+.reset-force-btn:hover {
+    background: #f4f6fb;
+    color: #4a5568;
+    border-color: #c0c8d8;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .main-layout {
+        flex-direction: column;
+        padding: 16px;
+    }
+    .control-panel {
+        width: 100%;
+        max-height: none;
+    }
+}

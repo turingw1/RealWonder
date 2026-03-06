@@ -1,0 +1,59 @@
+device: "cuda"
+seed: 0
+example_name: "tree"
+output_folder: "result/tree"
+data_path: "cases/tree/"
+
+segmenter: "sam2"
+all_object_points: [[[260, 190, 1], [260, 278, 1]]]
+
+all_object_masks_idx: [0]
+
+obj_kp_matching: true
+
+debug: false
+stitched_inpainting: false
+
+mesh_resize_factor: 1.0
+
+original_geometry_downsample: true
+target_faces: 1000
+
+dt: 0.01
+substeps: 20
+simulated_frames_num: 81
+frame_steps: 2
+MPM_grid_density: 32
+
+material_type: ["mpm_elastic"]
+
+remap_depth: [1.0, 2.0]
+
+particle_size: 0.02
+
+fixed_area:
+- [0, 1, 0.8, 1.0]
+
+gravity: -1
+
+alpha_threshold: 0.98
+
+crop_start: 176
+
+fg_points_render_radius: 0.01
+
+use_rgb_frontside: false
+
+original_geometry_downsample: true
+target_faces: 5000
+use_rgb_frontside: false
+
+num_output_frames: 21
+denoising_step_list: [750, 500, 250]
+mask_dropin_step: -1
+vgen_prompt: A strong gust of wind blows from the side
+  snapping the tree trunk. The upper half of the tree breaks off and falls to the side.
+  The remaining trunk stays rooted in place.
+  Wide outdoor landscape, static camera, eye-level frontal view.
+  Natural daylight, soft atmospheric haze, realistic lighting and shadows.
+  Cinematic composition, high resolution, sharp focus, natural colors.

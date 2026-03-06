@@ -1,0 +1,57 @@
+# HuggingFace Spaces requirements (pip)
+#
+# PyTorch + CUDA should be pre-installed in the Space runtime image.
+# pytorch3d requires a pre-built wheel — see README for install instructions.
+--extra-index-url https://download.pytorch.org/whl/cu121
+--extra-index-url https://miropsota.github.io/torch_packages_builder
+
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
+torchaudio==2.5.1+cu121
+
+ninja
+
+# Web server
+flask==3.0.3
+flask-socketio==5.6.0
+
+# Image / video
+Pillow==11.3.0
+opencv-python==4.9.0.80
+imageio==2.37.2
+tqdm==4.67.3
+
+# ML utilities
+einops==0.8.2
+omegaconf==2.3.0
+peft==0.10.0
+safetensors==0.7.0
+diffusers==0.30.2
+transformers==4.39.3
+ftfy==6.2.0
+easydict==1.13
+
+# 3D / geometry
+trimesh==4.11.1
+scipy==1.17.0
+
+# Plotting (debug mode only)
+matplotlib==3.10.8
+
+# Config / misc
+PyYAML==6.0.3
+numpy==1.26.4
+
+# Noise warping utility (Ryan Burgert's rp library)
+rp
+
+# Physics simulation (gstaichi is bundled with genesis-world)
+git+https://github.com/Genesis-Embodied-AI/Genesis.git@3aa206cd84729bc7cc14fb4007aeb95a0bead7aa
+
+
+https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl
+# flash_attn==2.8.3 --no-build-isolation
+
+pytorch3d==0.7.8+pt2.5.1cu121
+
+# pip install --extra-index-url https://miropsota.github.io/torch_packages_builder pytorch3d==0.7.8+pt2.5.1cu121

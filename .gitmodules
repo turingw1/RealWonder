@@ -1,0 +1,12 @@
+[submodule "submodules/sam_3d_objects"]
+	path = submodules/sam_3d_objects
+	url = https://github.com/facebookresearch/sam-3d-objects.git
+[submodule "submodules/Genesis"]
+	path = submodules/Genesis
+	url = https://github.com/Genesis-Embodied-AI/Genesis.git
+[submodule "submodules/sam2"]
+	path = submodules/sam2
+	url = https://github.com/facebookresearch/sam2.git
+[submodule "submodules/flux_controlnet_inpainting"]
+	path = submodules/flux_controlnet_inpainting
+	url = https://github.com/alimama-creative/FLUX-Controlnet-Inpainting.git

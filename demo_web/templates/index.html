@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RealWonder &mdash; Interactive Video Generation</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>RealWonder &mdash; Interactive Video Generation</h1>
+        <span id="caseName" class="case-name"></span>
+    </header>
+
+    <div class="main-layout">
+        <!-- Video display -->
+        <div class="video-panel" id="videoPanel">
+            <canvas id="videoCanvas" width="832" height="480"></canvas>
+            <div id="frameCounter" class="frame-counter">Frame: 0</div>
+            <!-- 3D force direction viewer, floats over the video at the object centroid -->
+            <div id="forceViewerWrap" class="force-viewer-wrap" style="display:none;">
+                <div id="forceViewer3dContainer" style="position:relative;width:160px;height:160px;">
+                    <canvas id="forceViewer3d" width="160" height="160"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control panel -->
+        <div class="control-panel">
+            <!-- Loading indicator (shown while server initializes) -->
+            <div id="loadingPanel">
+                <p class="loading-text">Waiting for server to finish initialization...</p>
+            </div>
+
+            <!-- Controls (shown after server sends "ready") -->
+            <div id="controlsPanel" style="display:none;">
+                <!-- Force configuration (built dynamically per case) -->
+                <h2>Force Configuration</h2>
+                <div class="control-group">
+                    <label>Select Object</label>
+                    <select id="objectSelect"></select>
+                </div>
+                <div id="forceConfigContainer"></div>
+
+                <hr>
+
+                <!-- Start / Stop / Reset -->
+                <div class="action-buttons">
+                    <button id="startBtn" class="btn btn-primary">Start</button>
+                    <button id="stopBtn" class="btn btn-danger">Stop</button>
+                    <button id="resetBtn" class="btn btn-secondary">Reset</button>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div id="statusBar" class="status-bar">
+                Status: Connecting...
+            </div>
+
+            <!-- Progress -->
+            <div class="progress-container">
+                <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div id="progressText" class="progress-text"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

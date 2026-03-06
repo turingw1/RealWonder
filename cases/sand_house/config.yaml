@@ -1,0 +1,50 @@
+device: "cuda"
+seed: 0
+example_name: "sand_house"
+output_folder: "result/sand_house"
+data_path: "cases/sand_house/"
+
+segmenter: "sam2"
+all_object_points: [[[200, 216, 1], [340, 352, 1]]]
+
+all_object_masks_idx: [0]
+
+obj_kp_matching: true
+obj_kp: [[[0.2, 0.8], [0.1, 0.9]]]
+
+logging_level: "details"
+
+debug: true
+stitched_inpainting: false
+
+mesh_resize_factor: 1.0
+
+remap_depth: [1.0, 2.0]
+
+target_faces: 10000
+
+dt: 0.01
+substeps: 10
+simulated_frames_num: 165
+frame_steps: 2
+material_type: ["mpm_sand"]
+
+MPM_rho: 1000
+MPM_nu: 0.3
+MPM_E: 1e5
+plane_coup_friction: 1.0
+plane_friction: 5.0
+MPM_friction_angle: 89
+closest_points_num: 5
+
+crop_start: 176
+alpha_threshold: 0.99
+fg_points_render_radius: 0.01
+
+original_geometry_downsample: false
+
+## VGen parameters
+num_output_frames: 42
+denoising_step_list: [500, 250, 100]
+mask_dropin_step: 2
+vgen_prompt: "A powdery very fine sand house sits on a wooden table under soft natural daylight, with warm even lighting and blurred plants in the background. A robotic arm from the left gently pushes the sand house, causing it to collapse and flow naturally to the right. After a short pause, two robotic arms from both sides alternately push the remaining sand pile, forming soft ripples and small dunes. The camera stays still at eye level with realistic granular motion. The sand is powdery and very fine, not chunky or clumped."
