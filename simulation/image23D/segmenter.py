@@ -3,6 +3,7 @@ import torch
 import sys
 import os
 import cv2
+from pathlib import Path
 from repvit_sam import SamAutomaticMaskGenerator, sam_model_registry
 import urllib.request
 import PIL
@@ -220,8 +221,13 @@ class RepViTSegmenter:
 class SegmentAnythingSegmenter:
     def __init__(self, config, device="cuda"):
         self.device = device
-        self.sam2_checkpoint = "/svl/u/wliu283/projects/wonder_play/i2v/flex-forcing/submodules/sam2/checkpoints/sam2.1_hiera_large.pt"
-        self.model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
+        repo_root = Path(__file__).resolve().parents[2]
+        self.sam2_checkpoint = (
+            repo_root / "submodules" / "sam2" / "checkpoints" / "sam2.1_hiera_large.pt"
+        ).as_posix()
+        self.model_cfg = (
+            repo_root / "submodules" / "sam2" / "sam2" / "configs" / "sam2.1" / "sam2.1_hiera_l.yaml"
+        ).as_posix()
         self.config = config
 
     def __call__(self, image):
@@ -270,7 +276,6 @@ class SegmentAnythingSegmenter:
 
 
         
-
 
 
 
