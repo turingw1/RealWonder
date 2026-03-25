@@ -97,10 +97,10 @@ git clone --recursive git@github.com:<your-user>/RealWonder.git
 cd RealWonder
 ```
 
-If direct GitHub is slow, try a `githubfast` mirror. The exact mirror format can vary by machine, but the common usable form is:
+If direct GitHub is slow, try a `githubfast` mirror:
 
 ```bash
-git clone --recursive https://githubfast.com/https://github.com/<your-user>/RealWonder.git
+git clone --recursive https://githubfast.com/<your-user>/RealWonder.git
 ```
 
 If the mirror also fails, use one of these fallbacks:

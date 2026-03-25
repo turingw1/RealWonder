@@ -60,10 +60,14 @@ bash scripts/check_realwonder_env.sh
 
 ## 4. When `git pull` Is Slow Or Fails
 
-Recommended default on the server: configure Git once for the current user so that all `https://github.com/...` traffic is automatically rewritten to `githubfast`.
+Recommended default on a shared server: do not write any Git mirror rule into `~/.gitconfig`.
+
+Instead, set temporary environment variables in the current terminal so that only this shell rewrites `https://github.com/...` to `https://githubfast.com/`.
 
 ```bash
-git config --global url."https://githubfast.com/".insteadOf https://github.com/
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=url.https://githubfast.com/.insteadOf
+export GIT_CONFIG_VALUE_0=https://github.com/
 ```
 
 After this, the following commands usually do not need any special mirror syntax:
@@ -78,20 +82,27 @@ git submodule update --init --recursive
 
 This is the simplest setup because:
 
+- it only affects the current terminal
+- it does not modify `~/.gitconfig`
+- it does not affect other users logged into the shared server
 - the repository remote can stay as the normal GitHub URL
 - submodule URLs in `.gitmodules` can also stay as normal GitHub URLs
-- Git rewrites them automatically at runtime
+- Git rewrites them automatically at runtime in this shell only
 
-To verify the rule:
+To verify the terminal variables:
 
 ```bash
-git config --global --get-regexp '^url\..*insteadOf$'
+echo "$GIT_CONFIG_COUNT"
+echo "$GIT_CONFIG_KEY_0"
+echo "$GIT_CONFIG_VALUE_0"
 ```
 
-To remove it later:
+To remove it from the current terminal:
 
 ```bash
-git config --global --unset url."https://githubfast.com/".insteadOf
+unset GIT_CONFIG_COUNT
+unset GIT_CONFIG_KEY_0
+unset GIT_CONFIG_VALUE_0
 ```
 
 If direct GitHub access is unstable, switch the current repository to `githubfast` temporarily:
@@ -116,19 +127,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
-If you want all `https://github.com/...` traffic in the current user account to prefer `githubfast`, use:
-
-```bash
-git config --global url."https://githubfast.com/".insteadOf https://github.com/
-```
-
-This is the preferred server-side setup.
-
-To remove it later:
-
-```bash
-git config --global --unset url."https://githubfast.com/".insteadOf
-```
+On a shared server, do not use `git config --global` for mirrors unless you are certain the Linux account is not shared.
 
 ## 5. How To Read Submodule Status
 
@@ -270,7 +269,9 @@ git submodule update --init --recursive
 For routine server maintenance:
 
 ```bash
-git config --global url."https://githubfast.com/".insteadOf https://github.com/
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=url.https://githubfast.com/.insteadOf
+export GIT_CONFIG_VALUE_0=https://github.com/
 
 cd ~/workspace/Zhengwei/RealWonder
 conda activate realwonder
