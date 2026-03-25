@@ -5,7 +5,6 @@ wan_models
 ckpts
 .claude
 trained_ckpts
-*.sh
 datasets/
 result*
 vgen_results/
