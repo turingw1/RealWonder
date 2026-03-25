@@ -113,7 +113,7 @@ class NoiseWarper:
     #     return output.numpy_noises
     
 
-    def process(self, video, output_folder:str, input_flow = True, crop_start = 120, debug = False):
+    def process(self, video, output_folder:str, input_flow = True, crop_start = 120, debug = False, device=None):
 
         FLOW = 2 ** 3
         LATENT = 8
@@ -158,6 +158,7 @@ class NoiseWarper:
             resize_frames=FRAME,
             resize_flow=FLOW,
             downscale_factor= round(FRAME * FLOW) * LATENT,
+            device=device,
         )
 
         if debug:

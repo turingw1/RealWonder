@@ -901,6 +901,9 @@ def get_noise_from_video(
     #Input assertions
     assert isinstance(resize_flow, int) and resize_flow >= 1, resize_flow
 
+    if isinstance(device, torch.device):
+        device = str(device)
+
     if device is None:
         if rp.currently_running_mac():
             device = 'cpu'

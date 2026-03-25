@@ -119,8 +119,15 @@ for i, frame in enumerate(video_frames):
 if debug:
     visualize_optical_flow_advanced(frame_folder, os.path.join(final_sim_folder, "flows.npy"), os.path.join(final_sim_folder, "optical_flow_viz"), arrow_density=30)
 
-# warped_noise = noise_warper.process(optical_flows, final_sim_folder, crop_start=config['crop_start'], input_flow=True, debug=debug)
-warped_noise = noise_warper.process(video_frames, final_sim_folder, crop_start=config['crop_start'], input_flow=False, debug=debug)
+# warped_noise = noise_warper.process(optical_flows, final_sim_folder, crop_start=config['crop_start'], input_flow=True, debug=debug, device=device)
+warped_noise = noise_warper.process(
+    video_frames,
+    final_sim_folder,
+    crop_start=config['crop_start'],
+    input_flow=False,
+    debug=debug,
+    device=device,
+)
 
 points_masks_path = os.path.join(final_sim_folder, "points_masks_downsampled.pt")
 torch.save(points_masks_downsampled, points_masks_path)
