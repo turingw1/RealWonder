@@ -18,3 +18,6 @@ slurm_logs/
 sim_tmp
 demo_web_old
 demo_web/demo_data/**/sim_tmp
+codex.arxiv
+submodules/sam2/checkpoints/*.pt
+submodules/sam_3d_objects/checkpoints/
