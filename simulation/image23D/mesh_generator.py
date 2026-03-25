@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import trimesh
 from pytorch3d.transforms import quaternion_to_matrix, Transform3d
-from simulation.utils import intrinsics_to_fov_opencv
+from simulation.utils import intrinsics_to_fov_opencv, FOV_to_intrinsics
 from typing import Tuple
 
 from scipy.spatial import cKDTree
@@ -53,6 +53,12 @@ class Sam3DMeshGenerator:
         result = self.model(image, mask, seed=seed)
 
         intrinsics = result.get("intrinsics")  # [3, 3]
+        if intrinsics is None:
+            if "fov_x_input" not in self.config:
+                raise ValueError(
+                    "sam3d_objects did not return intrinsics and config does not provide fov_x_input"
+                )
+            intrinsics = FOV_to_intrinsics(self.config["fov_x_input"], device=self.device)
 
         fx_pixels, fy_pixels, fov_x_deg, fov_y_deg, fov_x_rad, fov_y_rad = (
             intrinsics_to_fov_opencv(intrinsics, image.shape[:2])
