@@ -149,6 +149,19 @@ export WARP_CACHE_DIR=/cache/Zhengwei/RealWonder/warp
 export XDG_CACHE_HOME=/cache/Zhengwei/RealWonder/tmp
 ```
 
+For Hugging Face on shared servers, do not rely blindly on a globally exported group token. Prefer overriding credentials only in the current terminal or on a single command:
+
+```bash
+export HF_TOKEN="<your-personal-hf-token>"
+export HUGGINGFACE_TOKEN="$HF_TOKEN"
+```
+
+Mirror usage policy:
+
+- public repos: prefer `https://hf-mirror.com`
+- gated repos: test mirror first, but fall back to `https://huggingface.co` if mirror returns `403`
+- never change system-wide shell startup files just to switch tokens or endpoints
+
 To keep runtime paths unchanged, use symlinks:
 
 ```bash
@@ -303,6 +316,19 @@ Preferred:
 
 ```bash
 cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
+HF_TOKEN="<your-personal-hf-token>" \
+HUGGINGFACE_TOKEN="$HF_TOKEN" \
+HF_ENDPOINT="https://hf-mirror.com" \
+hf auth whoami
+```
+
+If `whoami` succeeds and your personal account can access `facebook/sam-3d-objects`, download with the same per-command override:
+
+```bash
+cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
+HF_TOKEN="<your-personal-hf-token>" \
+HUGGINGFACE_TOKEN="$HF_TOKEN" \
+HF_ENDPOINT="https://hf-mirror.com" \
 hf download \
   --repo-type model \
   --local-dir /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/hf-download \
@@ -318,6 +344,20 @@ Fallback if HF is slow:
 
 - download on a machine with better network, then `rsync` to `/cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/`
 - or download from browser and upload manually
+
+If mirror download returns `403` for this gated repo even though your token can access the model, retry the same command against the official endpoint without changing global environment variables:
+
+```bash
+cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
+HF_TOKEN="<your-personal-hf-token>" \
+HUGGINGFACE_TOKEN="$HF_TOKEN" \
+HF_ENDPOINT="https://huggingface.co" \
+hf download \
+  --repo-type model \
+  --local-dir /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/hf-download \
+  --max-workers 1 \
+  facebook/sam-3d-objects
+```
 
 ### 6.4 Install SAM2
 
@@ -390,6 +430,9 @@ python -m pip install 'huggingface-hub[cli]<1.0'
 RealWonder checkpoint:
 
 ```bash
+HF_TOKEN="<your-personal-hf-token>" \
+HUGGINGFACE_TOKEN="$HF_TOKEN" \
+HF_ENDPOINT="https://hf-mirror.com" \
 hf download \
   ziyc/realwonder \
   --include "Realwonder-Distilled-AR-I2V-Flow/*" \
@@ -399,6 +442,9 @@ hf download \
 Wan checkpoint:
 
 ```bash
+HF_TOKEN="<your-personal-hf-token>" \
+HUGGINGFACE_TOKEN="$HF_TOKEN" \
+HF_ENDPOINT="https://hf-mirror.com" \
 hf download \
   alibaba-pai/Wan2.1-Fun-V1.1-1.3B-InP \
   --local-dir /cache/Zhengwei/RealWonder/wan_models/Wan2.1-Fun-V1.1-1.3B-InP
@@ -480,3 +526,30 @@ LIDRA_SKIP_INIT=1 python -c "import sam3d_objects; print('ok')"
 ```
 
 If full runtime later requires that module, patch the package or pin a corrected upstream snapshot.
+
+### 8.7 Gated Hugging Face repo returns `403` from `hf-mirror.com`
+
+First verify that the personal token in the current terminal can really access the gated model:
+
+```bash
+HF_TOKEN="<your-personal-hf-token>" \
+HUGGINGFACE_TOKEN="$HF_TOKEN" \
+HF_ENDPOINT="https://hf-mirror.com" \
+python - <<'PY'
+from huggingface_hub import HfApi
+api = HfApi()
+print(api.whoami())
+print(api.model_info("facebook/sam-3d-objects").id)
+PY
+```
+
+If model metadata is accessible but `hf download` still returns `403`, retry the exact download with the official endpoint for that command only:
+
+```bash
+HF_TOKEN="<your-personal-hf-token>" \
+HUGGINGFACE_TOKEN="$HF_TOKEN" \
+HF_ENDPOINT="https://huggingface.co" \
+hf download --repo-type model facebook/sam-3d-objects
+```
+
+Do not rewrite global server environment variables just to switch endpoints. Keep the override local to the active terminal or to a single command line.
