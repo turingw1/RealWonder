@@ -14,6 +14,15 @@ import sam2
 from sam2.build_sam import build_sam2
 from sam2.automatic_mask_generator import SAM2ImagePredictor
 
+
+DEBUG_ROOT = Path("debug")
+
+
+def ensure_debug_dir(*parts: str) -> Path:
+    path = DEBUG_ROOT.joinpath(*parts)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
 def show_mask(mask, ax, random_color=False, borders = True):
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
@@ -42,6 +51,7 @@ def show_box(box, ax):
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))    
 
 def show_masks(image, masks, scores, save_prefix, point_coords=None, box_coords=None, input_labels=None, borders=True):
+    debug_dir = ensure_debug_dir("sam2")
     for i, (mask, score) in enumerate(zip(masks, scores)):
         plt.figure(figsize=(10, 10))
         plt.imshow(image)
@@ -55,7 +65,8 @@ def show_masks(image, masks, scores, save_prefix, point_coords=None, box_coords=
         if len(scores) > 1:
             plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
         plt.axis('off')
-        plt.savefig(f"debug/sam2/{save_prefix}_masks_{i:02d}.png")
+        plt.savefig(debug_dir / f"{save_prefix}_masks_{i:02d}.png")
+        plt.close()
 
 
 class OneFormerSegmenter:
@@ -157,6 +168,7 @@ class RepViTSegmenter:
         image_np = np.array(image)
 
         output = self.repvit_segmenter.generate(image_np)
+        sam_debug_dir = ensure_debug_dir("sam")
 
         # for debug
         sam_masks_np = []
@@ -166,8 +178,11 @@ class RepViTSegmenter:
             sam_masks_np.append(sam_mask['segmentation'])   # (512, 512) bool numpy array
             sam_mask = sam_mask['segmentation'] * 255
             sam_mask = sam_mask.astype(np.uint8)
-            cv2.imwrite(f"debug/sam/sam_mask_{sid:02d}.png", sam_mask)
-            cv2.imwrite(f"debug/sam/sam_mask_{sid:02d}_rgb.png", (sam_mask[:,:,None]/255).astype(np.uint8) * image_np[:,:,[2,1,0]])
+            cv2.imwrite((sam_debug_dir / f"sam_mask_{sid:02d}.png").as_posix(), sam_mask)
+            cv2.imwrite(
+                (sam_debug_dir / f"sam_mask_{sid:02d}_rgb.png").as_posix(),
+                (sam_mask[:, :, None] / 255).astype(np.uint8) * image_np[:, :, [2, 1, 0]],
+            )
         
         # # Dilate the mask(s) using cv2.dilate
         # kernel = np.ones((5, 5), np.uint8)  # You can adjust the kernel size as needed
@@ -230,6 +245,7 @@ class SegmentAnythingSegmenter:
 
     def __call__(self, image):
         image = np.array(image)
+        sam2_debug_dir = ensure_debug_dir("sam2")
         sam2_model = build_sam2(self.model_cfg, self.sam2_checkpoint, device=self.device)
         predictor = SAM2ImagePredictor(sam2_model)
         predictor.set_image(image)
@@ -248,7 +264,8 @@ class SegmentAnythingSegmenter:
             plt.imshow(image)
             show_points(object_points_xy, object_point_labels, plt.gca())
             plt.axis('on')
-            plt.savefig(f"debug/sam2/input_points_{object_idx:02d}.png")
+            plt.savefig(sam2_debug_dir / f"input_points_{object_idx:02d}.png")
+            plt.close()
         
             masks, scores, logits = predictor.predict(
                 point_coords=object_points_xy,
@@ -274,6 +291,5 @@ class SegmentAnythingSegmenter:
 
 
         
-
 
 
