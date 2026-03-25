@@ -63,7 +63,7 @@ bash scripts/check_realwonder_env.sh
 Recommended default on the server: configure Git once for the current user so that all `https://github.com/...` traffic is automatically rewritten to `githubfast`.
 
 ```bash
-git config --global url."https://githubfast.com/https://github.com/".insteadOf https://github.com/
+git config --global url."https://githubfast.com/".insteadOf https://github.com/
 ```
 
 After this, the following commands usually do not need any special mirror syntax:
@@ -91,7 +91,7 @@ git config --global --get-regexp '^url\..*insteadOf$'
 To remove it later:
 
 ```bash
-git config --global --unset url."https://githubfast.com/https://github.com/".insteadOf
+git config --global --unset url."https://githubfast.com/".insteadOf
 ```
 
 If direct GitHub access is unstable, switch the current repository to `githubfast` temporarily:
@@ -99,7 +99,7 @@ If direct GitHub access is unstable, switch the current repository to `githubfas
 ```bash
 cd ~/workspace/Zhengwei/RealWonder
 
-git remote set-url origin https://githubfast.com/https://github.com/turingw1/RealWonder.git
+git remote set-url origin https://githubfast.com/turingw1/RealWonder.git
 git pull
 ```
 
@@ -119,7 +119,7 @@ git submodule update --init --recursive
 If you want all `https://github.com/...` traffic in the current user account to prefer `githubfast`, use:
 
 ```bash
-git config --global url."https://githubfast.com/https://github.com/".insteadOf https://github.com/
+git config --global url."https://githubfast.com/".insteadOf https://github.com/
 ```
 
 This is the preferred server-side setup.
@@ -127,7 +127,7 @@ This is the preferred server-side setup.
 To remove it later:
 
 ```bash
-git config --global --unset url."https://githubfast.com/https://github.com/".insteadOf
+git config --global --unset url."https://githubfast.com/".insteadOf
 ```
 
 ## 5. How To Read Submodule Status
@@ -270,7 +270,7 @@ git submodule update --init --recursive
 For routine server maintenance:
 
 ```bash
-git config --global url."https://githubfast.com/https://github.com/".insteadOf https://github.com/
+git config --global url."https://githubfast.com/".insteadOf https://github.com/
 
 cd ~/workspace/Zhengwei/RealWonder
 conda activate realwonder
