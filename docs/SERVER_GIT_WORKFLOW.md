@@ -60,6 +60,40 @@ bash scripts/check_realwonder_env.sh
 
 ## 4. When `git pull` Is Slow Or Fails
 
+Recommended default on the server: configure Git once for the current user so that all `https://github.com/...` traffic is automatically rewritten to `githubfast`.
+
+```bash
+git config --global url."https://githubfast.com/https://github.com/".insteadOf https://github.com/
+```
+
+After this, the following commands usually do not need any special mirror syntax:
+
+```bash
+git pull
+git fetch
+git clone --recursive https://github.com/turingw1/RealWonder.git
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+This is the simplest setup because:
+
+- the repository remote can stay as the normal GitHub URL
+- submodule URLs in `.gitmodules` can also stay as normal GitHub URLs
+- Git rewrites them automatically at runtime
+
+To verify the rule:
+
+```bash
+git config --global --get-regexp '^url\..*insteadOf$'
+```
+
+To remove it later:
+
+```bash
+git config --global --unset url."https://githubfast.com/https://github.com/".insteadOf
+```
+
 If direct GitHub access is unstable, switch the current repository to `githubfast` temporarily:
 
 ```bash
@@ -87,6 +121,8 @@ If you want all `https://github.com/...` traffic in the current user account to 
 ```bash
 git config --global url."https://githubfast.com/https://github.com/".insteadOf https://github.com/
 ```
+
+This is the preferred server-side setup.
 
 To remove it later:
 
@@ -234,6 +270,8 @@ git submodule update --init --recursive
 For routine server maintenance:
 
 ```bash
+git config --global url."https://githubfast.com/https://github.com/".insteadOf https://github.com/
+
 cd ~/workspace/Zhengwei/RealWonder
 conda activate realwonder
 
