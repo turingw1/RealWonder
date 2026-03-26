@@ -11,7 +11,6 @@ video generator, noise warper). When a client connects, the UI shows the scene
 preview and lets the user choose force direction, edit prompt, and click Start.
 """
 import os
-os.environ['SETUPTOOLS_USE_DISTUTILS'] = 'stdlib'
 
 import argparse
 import base64
