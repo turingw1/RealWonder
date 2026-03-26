@@ -8,6 +8,8 @@ It is written for the server layout used in deployment:
 - Cache root: `/cache/Zhengwei/RealWonder`
 - Conda environment: `realwonder`
 
+Timing logs are now written automatically in structured JSON format. For the schema and long-term experiment design, see [EXPERIMENT_TIMING_PROTOCOL.md](./EXPERIMENT_TIMING_PROTOCOL.md).
+
 ## 1. Goal And Recommended Order
 
 Do not start with the web UI.
@@ -103,6 +105,9 @@ python case_simulation.py --config_path demo_web/demo_data/lamp/config.yaml
 Expected output location:
 
 - `result/lamp/final_sim`
+- timing logs:
+  - `result/lamp/<timestamp>/experiment_logs/*.summary.json`
+  - `result/lamp/<timestamp>/experiment_logs/*.events.jsonl`
 
 Quick check:
 
@@ -124,6 +129,9 @@ python infer_sim.py \
 Expected result:
 
 - `result/lamp/final_sim/final.mp4`
+- timing logs:
+  - `result/lamp/<timestamp>/final_sim/experiment_logs/*.summary.json`
+  - `result/lamp/<timestamp>/final_sim/experiment_logs/*.events.jsonl`
 
 Verify:
 
@@ -158,6 +166,10 @@ Notes:
 - use the absolute checkpoint path from `/cache/Zhengwei/RealWonder/ckpts/...`
 - keep the workspace path fixed at `~/workspace/Zhengwei/RealWonder`
 - if running on a remote server, expose the corresponding port through your SSH tunnel or server policy
+- startup timing logs are written under:
+  - `demo_web/demo_data/<case>/experiment_logs/`
+- per-generation timing logs are written under the case output folder:
+  - `<demo output folder>/experiment_logs/`
 
 ## 6. Suggested Validation Commands
 

@@ -2,6 +2,8 @@ import torch
 from PIL import Image
 import math
 import os
+from contextlib import nullcontext
+import time
 import numpy as np
 from einops import rearrange
 import trimesh
@@ -92,11 +94,12 @@ class MyBlendParams(NamedTuple):
 
 # pytorch3d space
 class SingleViewReconstructor(torch.nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, exp_logger=None):
         super().__init__()
         self.target_size = (512, 512)
         self.config = config
         self.device = config['device']
+        self.exp_logger = exp_logger
         
         self.input_image_pil = Image.open(os.path.join(config['data_path'], 'input.png')).convert('RGB')
         self.input_image = ToTensor()(self.input_image_pil).to(self.device)
@@ -119,39 +122,51 @@ class SingleViewReconstructor(torch.nn.Module):
         self.cache_bg = None
 
     def reconstruct(self):
-        if 'segmenter' not in self.config or self.config['segmenter'] == "repvit":
-            self.object_id = self.config['object_id']
-            self.segmenter = RepViTSegmenter(self.device)
-            target_masks = self.segmenter(self.input_image_pil, target_class=self.object_id, merge_mask=self.merge_mask)
-        elif self.config['segmenter'] == "sam2":
-            self.segmenter = SegmentAnythingSegmenter(self.config, self.device)
-            target_masks = self.segmenter(self.input_image_pil)
-        else:
-            raise ValueError(f"Invalid segmenter: {self.config['segmenter']}")
+        with (self.exp_logger.time_block("single_view_reconstruct.segment") if self.exp_logger is not None else nullcontext()):
+            if 'segmenter' not in self.config or self.config['segmenter'] == "repvit":
+                self.object_id = self.config['object_id']
+                self.segmenter = RepViTSegmenter(self.device)
+                target_masks = self.segmenter(self.input_image_pil, target_class=self.object_id, merge_mask=self.merge_mask)
+            elif self.config['segmenter'] == "sam2":
+                self.segmenter = SegmentAnythingSegmenter(self.config, self.device)
+                target_masks = self.segmenter(self.input_image_pil)
+            else:
+                raise ValueError(f"Invalid segmenter: {self.config['segmenter']}")
 
         self.object_masks = [torch.from_numpy(mask).to(self.device) for mask in target_masks]
+        if self.exp_logger is not None:
+            self.exp_logger.log_event(
+                "single_view_reconstruct.segment.result",
+                object_count=len(self.object_masks),
+                segmenter=self.config.get('segmenter', 'repvit'),
+            )
 
         inpainted_image_path = os.path.join(self.config['data_path'], 'inpainted.png')
-        if os.path.exists(inpainted_image_path):
-            self.inpainted_image = ToTensor()(Image.open(inpainted_image_path).convert('RGB')).to(self.device)
-        else:
-            inpainter = FluxInpainter(device=self.device)
-            all_objects_masks = torch.zeros_like(self.object_masks[0], dtype=torch.bool)
-            for mask in self.object_masks:
-                all_objects_masks = all_objects_masks | mask.bool()
-            # convert all_objects_masks to PIL image
-            # all_objects_masks = ToPILImage()(all_objects_masks.cpu().numpy().astype(np.uint8) * 255)
-            if self.config.get('debug', False):
-                # all_objects_masks.save(os.path.join(self.config['output_folder'], 'inpainter_masks.png'))
-                torchvision_utils.save_image(all_objects_masks.float(), os.path.join(self.config['output_folder'], 'inpainter_masks.png'))
-                
-            self.inpainted_image_pil = inpainter(self.input_image, all_objects_masks, prompt=self.config['inpainting_prompt'], negative_prompt=self.config['inpainting_negative_prompt'])
-            self.inpainted_image = ToTensor()(self.inpainted_image_pil).to(self.device)
-            if self.config.get('debug', False):
-                self.inpainted_image_pil.save(os.path.join(self.config['output_folder'], 'inpainted_image.png'))
-            
-            del inpainter
-            torch.cuda.empty_cache()
+        with (self.exp_logger.time_block("single_view_reconstruct.inpaint") if self.exp_logger is not None else nullcontext()):
+            if os.path.exists(inpainted_image_path):
+                self.inpainted_image = ToTensor()(Image.open(inpainted_image_path).convert('RGB')).to(self.device)
+                if self.exp_logger is not None:
+                    self.exp_logger.log_event("single_view_reconstruct.inpaint.cache_hit", cache_path=inpainted_image_path)
+            else:
+                inpainter = FluxInpainter(device=self.device)
+                all_objects_masks = torch.zeros_like(self.object_masks[0], dtype=torch.bool)
+                for mask in self.object_masks:
+                    all_objects_masks = all_objects_masks | mask.bool()
+                if self.config.get('debug', False):
+                    torchvision_utils.save_image(all_objects_masks.float(), os.path.join(self.config['output_folder'], 'inpainter_masks.png'))
+
+                self.inpainted_image_pil = inpainter(
+                    self.input_image,
+                    all_objects_masks,
+                    prompt=self.config['inpainting_prompt'],
+                    negative_prompt=self.config['inpainting_negative_prompt'],
+                )
+                self.inpainted_image = ToTensor()(self.inpainted_image_pil).to(self.device)
+                if self.config.get('debug', False):
+                    self.inpainted_image_pil.save(os.path.join(self.config['output_folder'], 'inpainted_image.png'))
+
+                del inpainter
+                torch.cuda.empty_cache()
 
         if 'stitched_inpainting' in self.config and self.config['stitched_inpainting']:
             # all_dilated_masks = [torch.from_numpy(dilate_binary_mask(per_mask, size=(512, 512), kernel_size=3, iterations=1)).unsqueeze(0).unsqueeze(0).to(self.device) for per_mask in self.object_masks]
@@ -165,6 +180,7 @@ class SingleViewReconstructor(torch.nn.Module):
         self.fg_meshes = []
         self.fg_pcs = []
         for idx, per_mask in enumerate(self.object_masks):
+            object_start = time.perf_counter()
 
             if 'refine_mask' in self.config and self.config['refine_mask']:
                 min_size = self.config['min_size'] if 'min_size' in self.config else 100
@@ -186,25 +202,26 @@ class SingleViewReconstructor(torch.nn.Module):
                 self.current_camera = self.get_camera_at_origin()
 
                 # background point cloud
-                moge_model = MoGeModel.from_pretrained("Ruicheng/moge-vitl").to(self.device)
-                moge_model.eval()
-                with torch.no_grad():
-                    depth_inpainted = moge_model.infer(self.inpainted_image, fov_x=fx_deg)['depth']
-                    depth_input = moge_model.infer(self.input_image, fov_x=fx_deg)['depth']
-                    mask_noninf_inpainted = ~torch.isinf(depth_inpainted)
-                    mask_noninf_input = ~torch.isinf(depth_input)
+                with (self.exp_logger.time_block("single_view_reconstruct.depth_estimation") if self.exp_logger is not None else nullcontext()):
+                    moge_model = MoGeModel.from_pretrained("Ruicheng/moge-vitl").to(self.device)
+                    moge_model.eval()
+                    with torch.no_grad():
+                        depth_inpainted = moge_model.infer(self.inpainted_image, fov_x=fx_deg)['depth']
+                        depth_input = moge_model.infer(self.input_image, fov_x=fx_deg)['depth']
+                        mask_noninf_inpainted = ~torch.isinf(depth_inpainted)
+                        mask_noninf_input = ~torch.isinf(depth_input)
 
-                    if mask_noninf_inpainted.any():
-                        max_val_inpainted = depth_inpainted[mask_noninf_inpainted].max()
-                        depth_inpainted = depth_inpainted.clone()
-                        depth_inpainted[~mask_noninf_inpainted] = max_val_inpainted
-                    if mask_noninf_input.any():
-                        max_val_input = depth_input[mask_noninf_input].max()
-                        depth_input = depth_input.clone()
-                        depth_input[~mask_noninf_input] = max_val_input
-                    if 'remap_depth' in self.config:
-                        depth_inpainted = self.remap_depth(depth_inpainted, self.config['remap_depth'], mask_noninf_inpainted)
-                        depth_input = self.remap_depth(depth_input, self.config['remap_depth'], mask_noninf_input)
+                        if mask_noninf_inpainted.any():
+                            max_val_inpainted = depth_inpainted[mask_noninf_inpainted].max()
+                            depth_inpainted = depth_inpainted.clone()
+                            depth_inpainted[~mask_noninf_inpainted] = max_val_inpainted
+                        if mask_noninf_input.any():
+                            max_val_input = depth_input[mask_noninf_input].max()
+                            depth_input = depth_input.clone()
+                            depth_input[~mask_noninf_input] = max_val_input
+                        if 'remap_depth' in self.config:
+                            depth_inpainted = self.remap_depth(depth_inpainted, self.config['remap_depth'], mask_noninf_inpainted)
+                            depth_input = self.remap_depth(depth_input, self.config['remap_depth'], mask_noninf_input)
                 
                 if self.config.get('debug', False):
                     save_depth_map(depth_inpainted.cpu().numpy(), os.path.join(self.config['output_folder'], f"depth_inpainted_{idx:02d}.png"))
@@ -267,6 +284,15 @@ class SingleViewReconstructor(torch.nn.Module):
             if self.config.get('debug', False):
                 original_mesh.export(os.path.join(self.config['output_folder'], f"sam3d_mesh_{idx:02d}.obj"))
                 simplified_mesh.export(os.path.join(self.config['output_folder'], f"sam3d_mesh_{idx:02d}_simplified.obj"))
+            if self.exp_logger is not None:
+                self.exp_logger.log_event(
+                    "single_view_reconstruct.object",
+                    time.perf_counter() - object_start,
+                    object_index=idx,
+                    mesh_vertices=int(self.fg_meshes[-1]['vertices'].shape[0]),
+                    mesh_faces=int(self.fg_meshes[-1]['faces'].shape[0]),
+                    point_count=int(self.fg_pcs[-1]['points'].shape[0]),
+                )
 
         if self.config.get('debug', False):
             save_point_cloud_as_ply(self.bg_points, self.bg_points_colors, os.path.join(self.config['output_folder'], 'projected_bg_points.ply'))
@@ -279,11 +305,12 @@ class SingleViewReconstructor(torch.nn.Module):
         self.ground_plane_normal = None
 
         if 'estimate_plane' in self.config and self.config['estimate_plane']:
-            self.ground_plane_normal = self.estimate_plane_normal_simple(self.fg_pcs[-1]['points'].cpu().numpy())
-            if self.ground_plane_normal[1] < 0:
-                self.ground_plane_normal = -self.ground_plane_normal
-            self.fg_pcs = self.fg_pcs[:-1]
-            self.fg_meshes = self.fg_meshes[:-1]
+            with (self.exp_logger.time_block("single_view_reconstruct.estimate_plane") if self.exp_logger is not None else nullcontext()):
+                self.ground_plane_normal = self.estimate_plane_normal_simple(self.fg_pcs[-1]['points'].cpu().numpy())
+                if self.ground_plane_normal[1] < 0:
+                    self.ground_plane_normal = -self.ground_plane_normal
+                self.fg_pcs = self.fg_pcs[:-1]
+                self.fg_meshes = self.fg_meshes[:-1]
 
         return self.fg_pcs, self.fg_meshes, self.ground_plane_normal, self.config
         

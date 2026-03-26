@@ -20,9 +20,10 @@ import time
 from simulation.utils import save_gif_from_image_folder
 
 class DiffSim(nn.Module):
-    def __init__(self, config): 
+    def __init__(self, config, exp_logger=None): 
         super().__init__()
         self.config = config
+        self.exp_logger = exp_logger
         self.device = self.config['device']
         self.output_folder = Path(self.config['output_folder']) / 'simulation'
 
@@ -37,8 +38,15 @@ class DiffSim(nn.Module):
         self.simulation_steps = self.simulated_frames_num * self.frame_steps
         self.material_type = self.config['material_type']
 
-        self.svr = SingleViewReconstructor(config)
+        self.svr = SingleViewReconstructor(config, exp_logger=self.exp_logger)
+        reconstruct_start = time.perf_counter()
         self.fg_pcs_from_3d, self.fg_meshes, self.ground_plane_normal, self.config = self.svr.reconstruct()
+        if self.exp_logger is not None:
+            self.exp_logger.log_event(
+                "diffsim.reconstruct_total",
+                time.perf_counter() - reconstruct_start,
+                object_count=len(self.fg_meshes),
+            )
 
         # initialize the proxy primitived for foreground object
         if self.ground_plane_normal is not None:
@@ -200,7 +208,10 @@ class DiffSim(nn.Module):
             fov = self.config['fov_x_input'],
             GUI = False,
         )
+        build_start = time.perf_counter()
         self.scene.build()
+        if self.exp_logger is not None:
+            self.exp_logger.log_event("diffsim.scene_build", time.perf_counter() - build_start)
 
         self.case_handler.after_scene_building()
 
@@ -306,20 +317,35 @@ class DiffSim(nn.Module):
         self.simulated_frames = []
         self.simualted_masks = []
         self.simualted_mesh_masks = []
-        import time
         start_time = time.time()
+        step_total = 0.0
+        render_total = 0.0
         for sid in tqdm(range(self.simulation_steps)):
-            # self.simulate_step(sid, self.output_folder, self.frame_steps)
+            step_start = time.perf_counter()
             all_obj_points = self.simulate_step(sid, self.output_folder)
+            step_total += time.perf_counter() - step_start
             if sid % self.frame_steps == 0:
+                render_start = time.perf_counter()
                 self.svr.update_fg_obj_info(all_obj_points)
                 frame_id = sid // self.frame_steps
                 current_frame, current_points_mask, current_mesh_mask = self.svr.render(frame_id = frame_id, save = self.config.get('debug', False), mask = True)
                 self.simulated_frames.append(current_frame)
                 self.simualted_masks.append(current_points_mask)
                 self.simualted_mesh_masks.append(current_mesh_mask)
+                render_total += time.perf_counter() - render_start
         end_time = time.time()
         print(f"Simulation + rendering time: {end_time - start_time} seconds")
+        if self.exp_logger is not None:
+            self.exp_logger.log_event(
+                "diffsim.simulation_pc_render",
+                end_time - start_time,
+                simulation_steps=self.simulation_steps,
+                rendered_frames=len(self.simulated_frames),
+                simulate_step_total_sec=step_total,
+                render_total_sec=render_total,
+                avg_simulate_step_sec=step_total / max(self.simulation_steps, 1),
+                avg_rendered_frame_sec=render_total / max(len(self.simulated_frames), 1),
+            )
         # save the gif of the simualated frames
         if self.config.get('debug', False):
             save_gif_from_image_folder(self.output_folder / "render" / "frames", self.output_folder / "simulated_frames.gif")
