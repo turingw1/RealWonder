@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, repeat
 from tqdm import tqdm
+from peft import LoraConfig, inject_adapter_in_model
 from safetensors import safe_open
 
 from vidgen.utils import SchedulerInterface, FlowMatchScheduler
@@ -21,21 +22,18 @@ from wan.modules.t5 import umt5_xxl
 from wan.modules.causal_model import CausalWanModel
 
 
+# LoRA Configuration
+gwtf_lora_config = LoraConfig(
+    r=2048,
+    lora_alpha=2048,
+    target_modules=["k", "o", "q", "v", "ffn.0", "ffn.2"]
+)
+
 type_dict = {
     "bfloat16": torch.bfloat16,
     "float16": torch.float16,
     "float32": torch.float32,
 }
-
-
-def _build_lora_config():
-    from peft import LoraConfig
-
-    return LoraConfig(
-        r=2048,
-        lora_alpha=2048,
-        target_modules=["k", "o", "q", "v", "ffn.0", "ffn.2"],
-    )
 
 
 def load_state_dict_from_safetensors(file_path, torch_dtype=None, device="cpu"):
@@ -336,11 +334,9 @@ class WanDiffusionWrapper(torch.nn.Module):
         self.post_init()
 
     def _setup_lora(self, model_name, lora_ckpt_path, lora_alpha, upcast_dtype, lora_training):
-        from peft import inject_adapter_in_model
-
         print(f"Injecting LoRA into {model_name}")
         if lora_training:
-            self.model = inject_adapter_in_model(_build_lora_config(), self.model)
+            self.model = inject_adapter_in_model(gwtf_lora_config, self.model)
 
         if upcast_dtype is not None and upcast_dtype != "float32":
             upcast_dtype = type_dict[upcast_dtype]
@@ -431,11 +427,9 @@ class WanI2VDiffusionWrapper(torch.nn.Module):
         self.post_init()
 
     def _setup_lora(self, model_name, lora_ckpt_path, lora_alpha, upcast_dtype, lora_training):
-        from peft import inject_adapter_in_model
-
         print(f"Injecting LoRA into {model_name}")
         if lora_training:
-            self.model = inject_adapter_in_model(_build_lora_config(), self.model)
+            self.model = inject_adapter_in_model(gwtf_lora_config, self.model)
 
         if upcast_dtype is not None and upcast_dtype != "float32":
             upcast_dtype = type_dict[upcast_dtype]
