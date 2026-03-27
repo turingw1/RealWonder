@@ -45,8 +45,9 @@ numpy==1.26.4
 # Noise warping utility (Ryan Burgert's rp library)
 rp
 
-# Physics simulation (gstaichi is bundled with genesis-world)
-git+https://github.com/Genesis-Embodied-AI/Genesis.git@3aa206cd84729bc7cc14fb4007aeb95a0bead7aa
+# Physics simulation
+# Reuse the already-installed workspace Genesis editable package instead of
+# forcing pip to re-clone Genesis and its recursive submodules from GitHub.
 
 
 https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl
