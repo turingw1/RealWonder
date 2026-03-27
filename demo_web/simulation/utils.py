@@ -3,6 +3,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 from PIL import Image
 from typing import List, Optional, Tuple
+from torchvision.io import write_video
+from torchvision.transforms.functional import pil_to_tensor
 import os
 from glob import glob
 import imageio.v2 as imageio
@@ -87,9 +89,6 @@ def save_video_from_pil(
     preset: str = "medium",
     yuv420p: bool = True,
 ) -> None:
-    from torchvision.io import write_video
-    from torchvision.transforms.functional import pil_to_tensor
-
     if not frames:
         raise ValueError("frames is empty")
     if size is None:
