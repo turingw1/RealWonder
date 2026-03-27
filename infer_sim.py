@@ -13,7 +13,6 @@ Example usage:
 
 import argparse
 import os
-import time
 from pathlib import Path
 
 import numpy as np
@@ -37,7 +36,6 @@ from vidgen import (
     load_first_frame,
     CausalInferencePipelineSDEdit
 )
-from simulation.experiment_logging import ExperimentLogger
 
 def load_sim_frames(frames_dir, height=480, width=832):
     """Load simulation frames from a directory of PNGs.
@@ -96,29 +94,19 @@ def main():
 
     device = torch.device("cuda")
     set_seed(args.seed)
-    sim_data_path = Path(args.sim_data_path)
-    experiment_logger = ExperimentLogger(
-        experiment_name="offline_video_generation",
-        run_name=sim_data_path.parent.name,
-        output_dir=sim_data_path / "experiment_logs",
-        metadata={
-            "checkpoint_path": args.checkpoint_path,
-            "sim_data_path": args.sim_data_path,
-            "output_path": args.output_path,
-        },
-    )
 
     print(f'Free VRAM {get_cuda_free_memory_gb(gpu)} GB')
     low_memory = get_cuda_free_memory_gb(gpu) < 40
 
     torch.set_grad_enabled(False)
 
+    sim_data_path = Path(args.sim_data_path)
+
     # -------------------------------------------------------------------------
     # Load simulation config for SDEdit parameters
     # -------------------------------------------------------------------------
     sim_config_path = sim_data_path / "config.yaml"
-    with experiment_logger.time_block("infer_sim.load_sim_config"):
-        sim_config = OmegaConf.load(sim_config_path)
+    sim_config = OmegaConf.load(sim_config_path)
     denoising_step_list = list(sim_config.denoising_step_list)
     mask_dropin_step = int(sim_config.mask_dropin_step)
     num_output_frames = int(sim_config.num_output_frames)
@@ -156,49 +144,45 @@ def main():
     # -------------------------------------------------------------------------
     # Initialize pipeline (SDEdit version)
     # -------------------------------------------------------------------------
-    with experiment_logger.time_block("infer_sim.initialize_pipeline"):
-        pipeline = CausalInferencePipelineSDEdit(config, device=device)
+    pipeline = CausalInferencePipelineSDEdit(config, device=device)
 
     # Load checkpoint
     if args.checkpoint_path:
-        with experiment_logger.time_block("infer_sim.load_checkpoint"):
-            state_dict = torch.load(args.checkpoint_path, map_location="cpu")
-            key = 'generator_ema' if args.use_ema else 'generator'
-            gen_state_dict = state_dict[key]
-            try:
-                pipeline.generator.load_state_dict(gen_state_dict)
-            except:
-                gen_state_dict = {k.replace('._fsdp_wrapped_module', ''): v for k, v in gen_state_dict.items()}
-                pipeline.generator.load_state_dict(gen_state_dict)
+        state_dict = torch.load(args.checkpoint_path, map_location="cpu")
+        key = 'generator_ema' if args.use_ema else 'generator'
+        gen_state_dict = state_dict[key]
+        try:
+            pipeline.generator.load_state_dict(gen_state_dict)
+        except:
+            gen_state_dict = {k.replace('._fsdp_wrapped_module', ''): v for k, v in gen_state_dict.items()}
+            pipeline.generator.load_state_dict(gen_state_dict)
 
-    with experiment_logger.time_block("infer_sim.move_models"):
-        pipeline = pipeline.to(dtype=torch.bfloat16)
-        if low_memory:
-            DynamicSwapInstaller.install_model(pipeline.text_encoder, device=gpu)
-        else:
-            pipeline.text_encoder.to(device=gpu)
-        pipeline.generator.to(device=gpu)
-        pipeline.vae.to(device=gpu)
+    pipeline = pipeline.to(dtype=torch.bfloat16)
+    if low_memory:
+        DynamicSwapInstaller.install_model(pipeline.text_encoder, device=gpu)
+    else:
+        pipeline.text_encoder.to(device=gpu)
+    pipeline.generator.to(device=gpu)
+    pipeline.vae.to(device=gpu)
 
     # Setup I2V flow processors
     pipeline.processor_dtype = torch.float32
     pipeline.processor_device = gpu
-    with experiment_logger.time_block("infer_sim.setup_processors"):
-        pipeline.processor_vae = WanVideoVAE().to(device=pipeline.processor_device, dtype=pipeline.processor_dtype)
-        pipeline.processor_ienc = WanImageEncoder().to(device=pipeline.processor_device, dtype=pipeline.processor_dtype)
+    pipeline.processor_vae = WanVideoVAE().to(device=pipeline.processor_device, dtype=pipeline.processor_dtype)
+    pipeline.processor_ienc = WanImageEncoder().to(device=pipeline.processor_device, dtype=pipeline.processor_dtype)
 
-        pipeline.processor_vae.requires_grad_(False)
-        pipeline.processor_ienc.requires_grad_(False)
+    pipeline.processor_vae.requires_grad_(False)
+    pipeline.processor_ienc.requires_grad_(False)
 
-        for p in pipeline.processor_vae.parameters():
-            p.data = p.data.to(dtype=pipeline.processor_dtype)
-        for b in pipeline.processor_vae.buffers():
-            b.data = b.data.to(dtype=pipeline.processor_dtype)
+    for p in pipeline.processor_vae.parameters():
+        p.data = p.data.to(dtype=pipeline.processor_dtype)
+    for b in pipeline.processor_vae.buffers():
+        b.data = b.data.to(dtype=pipeline.processor_dtype)
 
-        pipeline.processors = [
-            WanVideoUnit_ImageEmbedderVAE(),
-            WanVideoUnit_ImageEmbedderCLIP()
-        ]
+    pipeline.processors = [
+        WanVideoUnit_ImageEmbedderVAE(),
+        WanVideoUnit_ImageEmbedderCLIP()
+    ]
 
     # -------------------------------------------------------------------------
     # Load simulation data
@@ -209,31 +193,27 @@ def main():
 
     # 1. Load structured noise
     print(f"Loading noise from: {noise_path}")
-    with experiment_logger.time_block("infer_sim.load_structured_noise"):
-        noise_data = load_noise(
-            noise_path=str(noise_path),
-            target_frames=num_output_frames,
-            channel_dim=16,
-            downsample_mode="nearest",
-            eval_degradation=args.eval_degradation,
-        )
+    noise_data = load_noise(
+        noise_path=str(noise_path),
+        target_frames=num_output_frames,
+        channel_dim=16,
+        downsample_mode="nearest",
+        eval_degradation=args.eval_degradation,
+    )
 
     # 2. Load prompt from sim_data_path/prompt.txt
     prompt_path = sim_data_path / "prompt.txt"
-    with experiment_logger.time_block("infer_sim.load_prompt"):
-        with open(prompt_path, 'r') as f:
-            prompt = f.read().strip()
+    with open(prompt_path, 'r') as f:
+        prompt = f.read().strip()
     print(f"Prompt: {prompt}")
 
     # 3. Load first frame
     print(f"Loading first frame from: {first_frame_path}")
-    with experiment_logger.time_block("infer_sim.load_first_frame"):
-        input_image = load_first_frame(str(first_frame_path), height=480, width=832)  # [C, H, W]
+    input_image = load_first_frame(str(first_frame_path), height=480, width=832)  # [C, H, W]
 
     # 4. Load simulation frames for SDEdit
     print(f"Loading simulation frames from: {frames_dir}")
-    with experiment_logger.time_block("infer_sim.load_sim_frames"):
-        sim_frames = load_sim_frames(frames_dir, height=480, width=832)  # [1, C, T, H, W]
+    sim_frames = load_sim_frames(frames_dir, height=480, width=832)  # [1, C, T, H, W]
     print(f"  Loaded {sim_frames.shape[2]} simulation frames")
 
     # 5. Load object masks (optional, for mask dropin)
@@ -242,9 +222,8 @@ def main():
         mask_file = str(sim_data_path / "points_masks_downsampled.pt")
         if os.path.exists(mask_file):
             print(f"Loading object masks from: {mask_file}")
-            with experiment_logger.time_block("infer_sim.load_object_masks"):
-                sim_masks = load_sim_masks(mask_file, target_frames=num_output_frames)
-                sim_masks = sim_masks.to(device=device)
+            sim_masks = load_sim_masks(mask_file, target_frames=num_output_frames)
+            sim_masks = sim_masks.to(device=device)
             print(f"  Object mask shape: {sim_masks.shape}")
         else:
             print(f"Warning: mask_dropin_step={mask_dropin_step} but mask file not found: {mask_file}")
@@ -254,8 +233,7 @@ def main():
     sim_franka_masks = None
     franka_mask_file = sim_data_path / "mesh_masks_downsampled.pt"
     if franka_mask_file.exists():
-        with experiment_logger.time_block("infer_sim.load_mesh_masks"):
-            franka_masks_raw = load_sim_masks(str(franka_mask_file), target_frames=num_output_frames)
+        franka_masks_raw = load_sim_masks(str(franka_mask_file), target_frames=num_output_frames)
         if franka_masks_raw.any():
             sim_franka_masks = franka_masks_raw.to(device=device)
             print(f"Loading franka masks from: {franka_mask_file}")
@@ -275,10 +253,9 @@ def main():
     sim_latent = None
     if pipeline.sdedit:
         print("Encoding simulation frames to latent space...")
-        with experiment_logger.time_block("infer_sim.encode_sim_frames"):
-            sim_frames_device = sim_frames.to(device=device, dtype=torch.bfloat16)  # [1, C, T, H, W]
-            sim_latent = pipeline.vae.encode_to_latent(sim_frames_device)  # [1, T_latent, C, H, W]
-            sim_latent = sim_latent.to(device=device, dtype=torch.bfloat16)
+        sim_frames_device = sim_frames.to(device=device, dtype=torch.bfloat16)  # [1, C, T, H, W]
+        sim_latent = pipeline.vae.encode_to_latent(sim_frames_device)  # [1, T_latent, C, H, W]
+        sim_latent = sim_latent.to(device=device, dtype=torch.bfloat16)
         print(f"  sim_latent shape: {sim_latent.shape}")
 
         # Trim or pad sim_latent to match noise frames
@@ -307,39 +284,30 @@ def main():
     # Generate video
     # -------------------------------------------------------------------------
     print("Generating video...")
-    with experiment_logger.time_block("infer_sim.diffusion_inference"):
-        video, _ = pipeline.inference(
-            noise=structured_noise,
-            text_prompts=[prompt],
-            return_latents=True,
-            batch_sample=batch,
-            sim_latent=sim_latent,
-            sim_masks=sim_masks,
-            sim_franka_masks=sim_franka_masks,
-            low_memory=low_memory,
-            device=device,
-            structured_noise_sde=structured_noise_sde,
-        )
+    video, _ = pipeline.inference(
+        noise=structured_noise,
+        text_prompts=[prompt],
+        return_latents=True,
+        batch_sample=batch,
+        sim_latent=sim_latent,
+        sim_masks=sim_masks,
+        sim_franka_masks=sim_franka_masks,
+        low_memory=low_memory,
+        device=device,
+        structured_noise_sde=structured_noise_sde,
+    )
 
     # Process output
-    with experiment_logger.time_block("infer_sim.postprocess_video_tensor"):
-        video = rearrange(video, 'b t c h w -> b t h w c').cpu()
-        video = (255.0 * video[0]).to(torch.uint8)
+    video = rearrange(video, 'b t c h w -> b t h w c').cpu()
+    video = (255.0 * video[0]).to(torch.uint8)
 
     # Clear VAE cache
-    with experiment_logger.time_block("infer_sim.clear_vae_cache"):
-        pipeline.vae.model.clear_cache()
+    pipeline.vae.model.clear_cache()
 
     # Save the video
     print(f"Saving video to: {args.output_path}")
-    with experiment_logger.time_block("infer_sim.save_video"):
-        imageio.mimwrite(args.output_path, video.numpy(), fps=10)
+    imageio.mimwrite(args.output_path, video.numpy(), fps=10)
     print("Done!")
-    experiment_logger.finalize(
-        status="completed",
-        output_path=args.output_path,
-        num_output_frames=num_output_frames,
-    )
 
 if __name__ == "__main__":
     main()

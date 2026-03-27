@@ -17,7 +17,6 @@ import argparse
 import base64
 import io
 import threading
-import time
 from pathlib import Path
 from queue import Queue, Full as QueueFull, Empty as QueueEmpty
 
@@ -41,7 +40,6 @@ from case_handlers.base import get_demo_case_handler
 import case_handlers  # trigger registration
 from gpu_profiler import log_gpu, set_gpu_logging
 from simulation.utils import resize_and_crop_pil
-from simulation.experiment_logging import ExperimentLogger
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "realwonder-demo"
@@ -56,7 +54,6 @@ preview_b64 = None       # Base64 scene preview rendered once at startup
 default_prompt = ""       # Prompt from case config
 case_name = ""            # Name of the loaded case
 num_blocks = None         # Computed from case config at startup
-startup_logger = None
 
 is_generating = False
 stop_requested = False
@@ -181,16 +178,6 @@ def generation_loop(prompt):
     is_generating = True
     torch.set_grad_enabled(False)  # thread-local: must set in this thread too
 
-    exp_logger = ExperimentLogger(
-        experiment_name="interactive_demo_generation",
-        run_name=case_name or "demo_case",
-        output_dir=Path(simulator.config.get("output_folder", "/tmp/realwonder_demo")) / "experiment_logs",
-        metadata={
-            "prompt": prompt,
-            "num_blocks": num_blocks,
-        },
-    )
-
     try:
         socketio.emit("status", {"message": "Preparing video generator..."})
 
@@ -299,24 +286,13 @@ def generation_loop(prompt):
                             all_sim_frames.extend(sim_frames)
                         sim_queue.put((block_idx, flows, sim_frames, fg_masks, mesh_masks))
                         t_queue_end = time.perf_counter()
-                        total_block = t_queue_end - t_block_start
                         print(f"[TIMING] sim block {block_idx}: "
                               f"physics step = {t_step_total:.3f}s, "
                               f"render+flow = {t_render_total:.3f}s, "
                               f"resize = {t_resize_total:.3f}s, "
                               f"queue put = {t_queue_end - t_queue_start:.3f}s, "
-                              f"total = {total_block:.3f}s "
+                              f"total = {t_queue_end - t_block_start:.3f}s "
                               f"({n_pixel} frames)")
-                        exp_logger.log_event(
-                            "demo.stage1_render_flow_block",
-                            total_block,
-                            block_idx=block_idx,
-                            pixel_frames=n_pixel,
-                            physics_step_total_sec=t_step_total,
-                            render_flow_total_sec=t_render_total,
-                            resize_total_sec=t_resize_total,
-                            queue_put_sec=t_queue_end - t_queue_start,
-                        )
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -352,22 +328,12 @@ def generation_loop(prompt):
                     ))
                     t3 = time.perf_counter()
 
-                    total_block = t3 - t_wait_end
                     print(f"[TIMING] warp block {block_idx}: "
                           f"queue wait = {t_wait_end - t_wait_start:.3f}s, "
                           f"warp steps = {t1 - t0:.3f}s, "
                           f"get_block_noise = {t2 - t1:.3f}s, "
                           f"queue put = {t3 - t2:.3f}s, "
-                          f"total = {total_block:.3f}s")
-                    exp_logger.log_event(
-                        "demo.stage2_noise_warp_block",
-                        total_block,
-                        block_idx=block_idx,
-                        queue_wait_sec=t_wait_end - t_wait_start,
-                        warp_steps_sec=t1 - t0,
-                        get_block_noise_sec=t2 - t1,
-                        queue_put_sec=t3 - t2,
-                    )
+                          f"total = {t3 - t_wait_end:.3f}s")
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -474,19 +440,9 @@ def generation_loop(prompt):
             # Hand off frames to streaming thread (non-blocking)
             stream_queue.put((pixel_frames, block_idx))
 
-            total_block = t3 - t_wait_end
             print(f"[TIMING] block {block_idx}: VAE encode = {t1 - t0:.3f}s, "
                   f"mask build = {t2 - t1:.3f}s, diffusion = {t3 - t2:.3f}s, "
-                  f"total = {total_block:.3f}s")
-            exp_logger.log_event(
-                "demo.stage3_diffusion_block",
-                total_block,
-                block_idx=block_idx,
-                queue_wait_sec=t_wait_end - t_wait_start,
-                vae_encode_sec=t1 - t0,
-                mask_build_sec=t2 - t1,
-                diffusion_sec=t3 - t2,
-            )
+                  f"total = {t3 - t_wait_end:.3f}s")
             t_block_end = t3
 
         stream_queue.put(None)  # Sentinel
@@ -523,11 +479,9 @@ def generation_loop(prompt):
 
         socketio.emit("generation_complete", {})
         socketio.emit("status", {"message": "Generation complete"})
-        exp_logger.finalize(status="completed")
 
     except Exception as e:
         socketio.emit("error", {"message": f"Generation error: {str(e)}"})
-        exp_logger.finalize(status="failed", error=str(e))
         import traceback
         traceback.print_exc()
     finally:
@@ -632,7 +586,7 @@ def _warmup_pipeline():
     Without this, the first user-facing generation pays ~24s of kernel
     compilation across simulation render, noise warping, and diffusion.
     """
-    global startup_logger
+    import time
     print("[4/5] Warming up CUDA kernels (one-time cost)...")
     torch.set_grad_enabled(False)
 
@@ -654,20 +608,14 @@ def _warmup_pipeline():
     simulator.svr._prev_fg_frags_dists = None
     # Keep cache_bg — background render is reusable
     t1 = time.perf_counter()
-    sim_render_warmup = t1 - t0
-    print(f"      Sim + render warmup: {sim_render_warmup:.1f}s")
-    if startup_logger is not None:
-        startup_logger.log_event("demo.startup_warmup.sim_render", sim_render_warmup)
+    print(f"      Sim + render warmup: {t1 - t0:.1f}s")
 
     # 2. Warm up noise warper (grid_sample, meshgrid, interpolate kernels)
     dummy_flow = np.zeros((2, 512, 512), dtype=np.float32)
     noise_warper.warp_step(dummy_flow)
     noise_warper.reset()
     t2 = time.perf_counter()
-    noise_warp_warmup = t2 - t1
-    print(f"      Noise warp warmup:   {noise_warp_warmup:.1f}s")
-    if startup_logger is not None:
-        startup_logger.log_event("demo.startup_warmup.noise_warp", noise_warp_warmup)
+    print(f"      Noise warp warmup:   {t2 - t1:.1f}s")
 
     # 3. Warm up VAE encode + diffusion (transformer attention kernels)
     generator.prepare_generation(default_prompt)
@@ -724,13 +672,8 @@ def _warmup_pipeline():
     generator.reset()
     generator.pipeline.encode_vae.model.clear_cache()
     t3 = time.perf_counter()
-    vae_diffusion_warmup = t3 - t2
-    total_warmup = t3 - t0
-    print(f"      VAE + diffusion warmup: {vae_diffusion_warmup:.1f}s")
-    print(f"      Total warmup: {total_warmup:.1f}s — first generation will be fast.")
-    if startup_logger is not None:
-        startup_logger.log_event("demo.startup_warmup.vae_diffusion", vae_diffusion_warmup)
-        startup_logger.finalize(status="completed", total_warmup_sec=total_warmup)
+    print(f"      VAE + diffusion warmup: {t3 - t2:.1f}s")
+    print(f"      Total warmup: {t3 - t0:.1f}s — first generation will be fast.")
     log_gpu("after pipeline warmup")
 
 
@@ -740,7 +683,7 @@ def _warmup_pipeline():
 
 def main():
     global simulator, noise_warper, generator, demo_case_handler
-    global preview_b64, default_prompt, case_name, num_blocks, startup_logger
+    global preview_b64, default_prompt, case_name, num_blocks
 
     parser = argparse.ArgumentParser(description="RealWonder Interactive Demo")
     parser.add_argument("--demo_data", type=str, required=True,
@@ -764,15 +707,6 @@ def main():
 
     demo_data_path = Path(args.demo_data)
     case_name = demo_data_path.name
-    startup_logger = ExperimentLogger(
-        experiment_name="interactive_demo_startup",
-        run_name=case_name,
-        output_dir=demo_data_path / "experiment_logs",
-        metadata={
-            "checkpoint_path": args.checkpoint_path,
-            "demo_data": str(demo_data_path),
-        },
-    )
 
     if not demo_data_path.exists() or not (demo_data_path / "config.yaml").exists():
         print(f"ERROR: {demo_data_path} does not exist or has no config.yaml")
@@ -789,18 +723,17 @@ def main():
     # ---- Step 1: Initialize video generator ----
     print(f"[1/5] Initializing video generator from {args.checkpoint_path} ...")
     log_gpu("before video generator init")
-    with startup_logger.time_block("demo.startup.initialize_video_generator"):
-        generator = StreamingVideoGenerator(
-            checkpoint_path=args.checkpoint_path,
-            num_pixel_frames=sdedit_cfg["num_pixel_frames"],
-            denoising_steps=sdedit_cfg["denoising_step_list"],
-            mask_dropin_step=sdedit_cfg["mask_dropin_step"],
-            franka_step=sdedit_cfg["franka_step"],
-            use_ema=args.use_ema,
-            seed=args.seed,
-            enable_taehv=args.taehv,
-        )
-        generator.setup()
+    generator = StreamingVideoGenerator(
+        checkpoint_path=args.checkpoint_path,
+        num_pixel_frames=sdedit_cfg["num_pixel_frames"],
+        denoising_steps=sdedit_cfg["denoising_step_list"],
+        mask_dropin_step=sdedit_cfg["mask_dropin_step"],
+        franka_step=sdedit_cfg["franka_step"],
+        use_ema=args.use_ema,
+        seed=args.seed,
+        enable_taehv=args.taehv,
+    )
+    generator.setup()
     log_gpu("after video generator setup")
     print("      Video generator ready.")
 
@@ -812,34 +745,30 @@ def main():
     config_overrides = {}
     if case_name == "santa_cloth":
         config_overrides["skip_force_fields"] = True
-    with startup_logger.time_block("demo.startup.initialize_simulator"):
-        simulator = InteractiveSimulator(
-            str(demo_data_path), config_overrides=config_overrides,
-        )
-        if not args.debug:
-            simulator.config["debug"] = False
+    simulator = InteractiveSimulator(
+        str(demo_data_path), config_overrides=config_overrides,
+    )
+    if not args.debug:
+        simulator.config["debug"] = False
     log_gpu("after simulator init")
 
     # Create per-case demo handler and attach to simulator
-    with startup_logger.time_block("demo.startup.initialize_case_handler"):
-        demo_case_handler = get_demo_case_handler(case_name, simulator.config)
-        demo_case_handler.set_object_masks(simulator.object_masks_b64)
-        simulator.set_demo_case_handler(demo_case_handler)
+    demo_case_handler = get_demo_case_handler(case_name, simulator.config)
+    demo_case_handler.set_object_masks(simulator.object_masks_b64)
+    simulator.set_demo_case_handler(demo_case_handler)
     print(f"      Demo case handler: {type(demo_case_handler).__name__}")
 
-    with startup_logger.time_block("demo.startup.initialize_noise_warper"):
-        noise_warper = StreamingNoiseWarper(crop_start=simulator.crop_start)
+    noise_warper = StreamingNoiseWarper(crop_start=simulator.crop_start)
     log_gpu("after noise warper init")
     print("      Simulator and noise warper ready.")
 
     # ---- Step 3: Pre-compute first frame encoding + KV cache + default prompt ----
     print("[3/5] Pre-computing first frame encoding + KV cache + default prompt ...")
-    with startup_logger.time_block("demo.startup.precompute_first_frame"):
-        first_frame_path = _find_first_frame()
-        preview_pil = Image.open(first_frame_path).convert("RGB")
-        preview_b64 = _encode_pil_b64(preview_pil)
-        default_prompt = simulator.config.get("vgen_prompt", "A video of physical simulation")
-        generator.precompute_first_frame(first_frame_path, default_prompt=default_prompt)
+    first_frame_path = _find_first_frame()
+    preview_pil = Image.open(first_frame_path).convert("RGB")
+    preview_b64 = _encode_pil_b64(preview_pil)
+    default_prompt = simulator.config.get("vgen_prompt", "A video of physical simulation")
+    generator.precompute_first_frame(first_frame_path, default_prompt=default_prompt)
     log_gpu("after first frame pre-computation")
     print(f"      First frame pre-computed from {first_frame_path}. All components initialized.")
 
