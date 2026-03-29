@@ -138,3 +138,36 @@ ls demo_web/demo_data/lamp/experiment_logs/*/
 tail -n 20 demo_web/demo_data/lamp/experiment_logs/*/*.events.jsonl
 cat demo_web/demo_data/lamp/experiment_logs/*/*.summary.json
 ```
+
+## Visualize The Pipeline
+
+Use the standalone plotting tool to draw a pipeline-style timeline from one interactive demo run.
+
+If you pass the `experiment_logs` directory, the tool automatically picks the latest run subdirectory.
+
+```bash
+cd ~/workspace/Zhengwei/RealWonder
+python scripts/plot_interactive_demo_timing.py demo_web/demo_data/lamp/experiment_logs
+```
+
+This writes:
+
+```text
+demo_web/demo_data/lamp/experiment_logs/<latest_run>/pipeline_timing.png
+```
+
+You can also target a specific run directory and choose the output path:
+
+```bash
+python scripts/plot_interactive_demo_timing.py \
+  demo_web/demo_data/lamp/experiment_logs/lamp_20260330_153000_a1b2c3 \
+  --output demo_web/demo_data/lamp/experiment_logs/lamp_20260330_153000_a1b2c3/pipeline_timing.png
+```
+
+The generated figure is designed to match the article's pipeline logic:
+
+- startup and warmup are shown as early sequential phases
+- Stage 1 (`sim`) shows physics, render+flow, and resize time
+- Stage 2 (`warp`) shows queue wait and noise warp time
+- Stage 3 (`diffusion`) shows queue wait, VAE encode, mask build, and diffusion time
+- queue wait is rendered as a gray hatched segment so block overlap is easy to see
