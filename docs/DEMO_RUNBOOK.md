@@ -146,17 +146,19 @@ python -m pip install -r demo_web/requirements.txt
 Start the web app:
 
 ```bash
-cd ~/workspace/Zhengwei/RealWonder/demo_web
+cd ~/workspace/Zhengwei/RealWonder
 conda activate realwonder
-python app.py \
-  --demo_data demo_data/lamp \
-  --checkpoint_path /cache/Zhengwei/RealWonder/ckpts/Realwonder-Distilled-AR-I2V-Flow/sink_size=1-attn_size=21-frame_per_block=3-denoising_steps=4/step=000800.pt
+python demo_web/app.py \
+  --demo_data demo_web/demo_data/lamp \
+  --checkpoint_path "/cache/Zhengwei/RealWonder/ckpts/Realwonder-Distilled-AR-I2V-Flow/sink_size=1-attn_size=21-frame_per_block=3-denoising_steps=4/step=000800.pt"
 ```
 
 Notes:
 
+- always launch the app from the repository root
+- use `--demo_data demo_web/demo_data/lamp` when running from the repository root
+- keep the checkpoint path quoted to avoid shell line-wrap mistakes on long paths
 - use the absolute checkpoint path from `/cache/Zhengwei/RealWonder/ckpts/...`
-- keep the workspace path fixed at `~/workspace/Zhengwei/RealWonder`
 - if running on a remote server, expose the corresponding port through your SSH tunnel or server policy
 
 ## 6. Suggested Validation Commands
@@ -246,8 +248,7 @@ python infer_sim.py \
   --sim_data_path result/lamp/final_sim \
   --output_path result/lamp/final_sim/final.mp4
 
-cd demo_web
-python app.py \
-  --demo_data demo_data/lamp \
-  --checkpoint_path /cache/Zhengwei/RealWonder/ckpts/Realwonder-Distilled-AR-I2V-Flow/sink_size=1-attn_size=21-frame_per_block=3-denoising_steps=4/step=000800.pt
+python demo_web/app.py \
+  --demo_data demo_web/demo_data/lamp \
+  --checkpoint_path "/cache/Zhengwei/RealWonder/ckpts/Realwonder-Distilled-AR-I2V-Flow/sink_size=1-attn_size=21-frame_per_block=3-denoising_steps=4/step=000800.pt"
 ```
