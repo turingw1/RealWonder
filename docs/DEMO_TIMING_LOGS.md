@@ -32,12 +32,29 @@ For example:
 demo_web/demo_data/lamp/experiment_logs/
 ```
 
+Each startup creates one run directory under that path, for example:
+
+```text
+demo_web/demo_data/lamp/experiment_logs/lamp_20260330_153000_a1b2c3/
+```
+
+This keeps logs from different runs grouped together cleanly.
+
 ## Log Files
 
-Each run writes:
+Inside each run directory, the demo writes:
 
-- `*.events.jsonl`
-- `*.summary.json`
+- `bootstrap.events.jsonl`
+- `bootstrap.summary.json`
+- `startup.events.jsonl`
+- `startup.summary.json`
+- `generation.events.jsonl`
+- `generation.summary.json`
+
+Not every file appears immediately:
+
+- startup creates `bootstrap.*` and `startup.*`
+- actual interaction/generation creates `generation.*`
 
 ## Experiment Types
 
@@ -76,7 +93,7 @@ All events contain:
 - `run_id`
 - `experiment_name`
 - `run_name`
-- `timestamp_utc`
+- `timestamp`
 - `stage`
 - `duration_sec`
 
@@ -117,6 +134,7 @@ Then inspect:
 
 ```bash
 ls demo_web/demo_data/lamp/experiment_logs
-tail -n 20 demo_web/demo_data/lamp/experiment_logs/*.events.jsonl
-cat demo_web/demo_data/lamp/experiment_logs/*.summary.json
+ls demo_web/demo_data/lamp/experiment_logs/*/
+tail -n 20 demo_web/demo_data/lamp/experiment_logs/*/*.events.jsonl
+cat demo_web/demo_data/lamp/experiment_logs/*/*.summary.json
 ```

@@ -4,7 +4,7 @@ import socket
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 
@@ -29,15 +29,15 @@ class ExperimentLogger:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.run_id = f"{experiment_name}__{run_name}__{timestamp}__{uuid.uuid4().hex[:8]}"
+        self.run_id = self.output_dir.name
         self.start_perf = time.perf_counter()
-        self.start_time = datetime.now(timezone.utc).isoformat()
+        self.start_time = _now_local()
         self.metadata = metadata or {}
         self.events = []
 
-        self.events_path = self.output_dir / f"{self.run_id}.events.jsonl"
-        self.summary_path = self.output_dir / f"{self.run_id}.summary.json"
+        file_stem = _experiment_label(self.experiment_name)
+        self.events_path = self.output_dir / f"{file_stem}.events.jsonl"
+        self.summary_path = self.output_dir / f"{file_stem}.summary.json"
 
     def _base(self):
         return {
@@ -49,7 +49,7 @@ class ExperimentLogger:
     def log_event(self, stage, duration_sec=None, **payload):
         record = {
             **self._base(),
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "timestamp": _now_local(),
             "stage": stage,
             "duration_sec": duration_sec,
             **{k: _json_safe(v) for k, v in payload.items()},
@@ -70,8 +70,8 @@ class ExperimentLogger:
         summary = {
             **self._base(),
             "status": status,
-            "start_time_utc": self.start_time,
-            "end_time_utc": datetime.now(timezone.utc).isoformat(),
+            "start_time": self.start_time,
+            "end_time": _now_local(),
             "total_duration_sec": time.perf_counter() - self.start_perf,
             "event_count": len(self.events),
             "host": socket.gethostname(),
@@ -84,3 +84,21 @@ class ExperimentLogger:
         with self.summary_path.open("w", encoding="utf-8") as f:
             json.dump(summary, f, ensure_ascii=False, indent=2)
         return summary
+
+
+def create_session_dir(base_dir, run_name):
+    base_path = Path(base_dir)
+    base_path.mkdir(parents=True, exist_ok=True)
+    session_name = f"{run_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    session_dir = base_path / session_name
+    session_dir.mkdir(parents=True, exist_ok=True)
+    return session_dir
+
+
+def _now_local():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _experiment_label(experiment_name):
+    short = experiment_name.replace("interactive_demo_", "")
+    return short or experiment_name

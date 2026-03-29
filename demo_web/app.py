@@ -40,7 +40,7 @@ from case_handlers.base import get_demo_case_handler
 import case_handlers  # trigger registration
 from gpu_profiler import log_gpu, set_gpu_logging
 from simulation.utils import resize_and_crop_pil
-from experiment_logging import ExperimentLogger
+from experiment_logging import ExperimentLogger, create_session_dir
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "realwonder-demo"
@@ -766,8 +766,8 @@ def main():
 
     demo_data_path = Path(args.demo_data)
     case_name = demo_data_path.name
-    experiment_log_dir = demo_data_path / "experiment_logs"
-    experiment_log_dir.mkdir(parents=True, exist_ok=True)
+    experiment_log_base_dir = demo_data_path / "experiment_logs"
+    experiment_log_dir = create_session_dir(experiment_log_base_dir, case_name)
     bootstrap_logger = ExperimentLogger(
         experiment_name="interactive_demo_bootstrap",
         run_name=case_name,
