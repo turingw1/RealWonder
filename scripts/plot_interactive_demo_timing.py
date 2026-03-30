@@ -284,6 +284,24 @@ def short_generation_label(label):
     return f"{parts[0]} {parts[1]}"
 
 
+def generation_label_offset(seg):
+    block_idx = -1
+    label = seg.label or ""
+    if label.startswith("B"):
+        block_token = label.split()[0]
+        try:
+            block_idx = int(block_token[1:])
+        except ValueError:
+            block_idx = -1
+
+    # Use four stable vertical slots so adjacent blocks do not all stack onto
+    # the same two label positions in dense timeline regions.
+    offsets = [0.34, 0.12, -0.12, -0.34]
+    if block_idx >= 0:
+        return offsets[block_idx % len(offsets)]
+    return offsets[0]
+
+
 def build_figure(run_dir, output_path, dpi):
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
@@ -354,14 +372,14 @@ def build_figure(run_dir, output_path, dpi):
                 fontsize=7,
             )
         elif display_duration >= 0.08:
-            label_y = y + (0.24 if idx % 2 == 0 else -0.24)
+            label_y = y + generation_label_offset(seg)
             ax.text(
                 display_start + display_duration / 2,
                 label_y,
                 label_text,
                 ha="center",
                 va="center",
-                fontsize=6.5,
+                fontsize=6.2,
             )
 
     divider_x = compressed_startup_width + startup_gap / 2
