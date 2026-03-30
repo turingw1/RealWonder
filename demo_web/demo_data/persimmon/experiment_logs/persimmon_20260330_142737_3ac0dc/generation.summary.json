@@ -1,0 +1,19 @@
+{
+  "run_id": "persimmon_20260330_142737_3ac0dc",
+  "experiment_name": "interactive_demo_generation",
+  "run_name": "persimmon",
+  "status": "completed",
+  "start_time": "2026-03-30 14:31:51",
+  "end_time": "2026-03-30 14:32:29",
+  "total_duration_sec": 37.77364640682936,
+  "event_count": 21,
+  "host": "modelarts-job-1801fbd6-9f84-4b0f-8c02-e7a6751a19d7-worker-0",
+  "cwd": "/home/ma-user/workspace/Zhengwei/RealWonder",
+  "cuda_visible_devices": "1",
+  "metadata": {
+    "case_name": "persimmon",
+    "prompt": "Three ripe persimmons are stacked vertically on a table. The top and middle persimmons are pushed by forces and fall off the stack onto the table. The bottom persimmon remains in place. The motion is natural and realistic.",
+    "num_blocks": 7
+  },
+  "events_path": "demo_web/demo_data/persimmon/experiment_logs/persimmon_20260330_142737_3ac0dc/generation.events.jsonl"
+}

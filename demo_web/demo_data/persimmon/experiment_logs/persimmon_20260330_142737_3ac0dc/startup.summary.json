@@ -1,0 +1,18 @@
+{
+  "run_id": "persimmon_20260330_142737_3ac0dc",
+  "experiment_name": "interactive_demo_startup",
+  "run_name": "persimmon",
+  "status": "completed",
+  "start_time": "2026-03-30 14:30:59",
+  "end_time": "2026-03-30 14:31:10",
+  "total_duration_sec": 10.121489945799112,
+  "event_count": 3,
+  "host": "modelarts-job-1801fbd6-9f84-4b0f-8c02-e7a6751a19d7-worker-0",
+  "cwd": "/home/ma-user/workspace/Zhengwei/RealWonder",
+  "cuda_visible_devices": "1",
+  "metadata": {
+    "case_name": "persimmon"
+  },
+  "events_path": "demo_web/demo_data/persimmon/experiment_logs/persimmon_20260330_142737_3ac0dc/startup.events.jsonl",
+  "total_warmup_sec": 10.121044777333736
+}

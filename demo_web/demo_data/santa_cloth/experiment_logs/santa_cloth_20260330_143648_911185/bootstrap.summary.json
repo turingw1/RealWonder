@@ -1,0 +1,18 @@
+{
+  "run_id": "santa_cloth_20260330_143648_911185",
+  "experiment_name": "interactive_demo_bootstrap",
+  "run_name": "santa_cloth",
+  "status": "completed",
+  "start_time": "2026-03-30 14:36:48",
+  "end_time": "2026-03-30 14:39:38",
+  "total_duration_sec": 169.7648087888956,
+  "event_count": 5,
+  "host": "modelarts-job-1801fbd6-9f84-4b0f-8c02-e7a6751a19d7-worker-0",
+  "cwd": "/home/ma-user/workspace/Zhengwei/RealWonder",
+  "cuda_visible_devices": "1",
+  "metadata": {
+    "case_name": "santa_cloth",
+    "checkpoint_path": "/cache/Zhengwei/RealWonder/ckpts/Realwonder-Distilled-AR-I2V-Flow/sink_size=1-attn_size=21-frame_per_block=3-denoising_steps=4/step=000800.pt"
+  },
+  "events_path": "demo_web/demo_data/santa_cloth/experiment_logs/santa_cloth_20260330_143648_911185/bootstrap.events.jsonl"
+}

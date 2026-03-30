@@ -1,0 +1,19 @@
+{
+  "run_id": "lamp_20260330_014218_41d340",
+  "experiment_name": "interactive_demo_generation",
+  "run_name": "lamp",
+  "status": "completed",
+  "start_time": "2026-03-30 01:45:38",
+  "end_time": "2026-03-30 01:46:14",
+  "total_duration_sec": 36.77071073278785,
+  "event_count": 21,
+  "host": "modelarts-job-1801fbd6-9f84-4b0f-8c02-e7a6751a19d7-worker-0",
+  "cwd": "/home/ma-user/workspace/Zhengwei/RealWonder",
+  "cuda_visible_devices": "1",
+  "metadata": {
+    "case_name": "lamp",
+    "prompt": "A square paper lantern is moving on river. Water surface ripples follow the motion. Twilight, cinematic realism.",
+    "num_blocks": 7
+  },
+  "events_path": "demo_web/demo_data/lamp/experiment_logs/lamp_20260330_014218_41d340/generation.events.jsonl"
+}

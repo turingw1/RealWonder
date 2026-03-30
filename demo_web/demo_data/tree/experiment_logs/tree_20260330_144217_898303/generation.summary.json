@@ -1,0 +1,19 @@
+{
+  "run_id": "tree_20260330_144217_898303",
+  "experiment_name": "interactive_demo_generation",
+  "run_name": "tree",
+  "status": "completed",
+  "start_time": "2026-03-30 14:49:41",
+  "end_time": "2026-03-30 14:50:29",
+  "total_duration_sec": 48.21808356419206,
+  "event_count": 21,
+  "host": "modelarts-job-1801fbd6-9f84-4b0f-8c02-e7a6751a19d7-worker-0",
+  "cwd": "/home/ma-user/workspace/Zhengwei/RealWonder",
+  "cuda_visible_devices": "1",
+  "metadata": {
+    "case_name": "tree",
+    "prompt": "A strong gust of wind blows from the side snapping the tree trunk. The upper half of the tree breaks off and falls to the side. The remaining trunk stays rooted in place. Wide outdoor landscape, static camera, eye-level frontal view. Natural daylight, soft atmospheric haze, realistic lighting and shadows. Cinematic composition, high resolution, sharp focus, natural colors.",
+    "num_blocks": 7
+  },
+  "events_path": "demo_web/demo_data/tree/experiment_logs/tree_20260330_144217_898303/generation.events.jsonl"
+}

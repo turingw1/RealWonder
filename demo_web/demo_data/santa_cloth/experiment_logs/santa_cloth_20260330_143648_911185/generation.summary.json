@@ -1,0 +1,19 @@
+{
+  "run_id": "santa_cloth_20260330_143648_911185",
+  "experiment_name": "interactive_demo_generation",
+  "run_name": "santa_cloth",
+  "status": "completed",
+  "start_time": "2026-03-30 14:40:02",
+  "end_time": "2026-03-30 14:40:41",
+  "total_duration_sec": 39.270915508270264,
+  "event_count": 21,
+  "host": "modelarts-job-1801fbd6-9f84-4b0f-8c02-e7a6751a19d7-worker-0",
+  "cwd": "/home/ma-user/workspace/Zhengwei/RealWonder",
+  "cuda_visible_devices": "1",
+  "metadata": {
+    "case_name": "santa_cloth",
+    "prompt": "Wind blows the hanging clothes. The motion is gentle, continuous, and rhythmic, driven by shifting airflow. Static camera, eye-level frontal view, natural fabric movement.",
+    "num_blocks": 7
+  },
+  "events_path": "demo_web/demo_data/santa_cloth/experiment_logs/santa_cloth_20260330_143648_911185/generation.events.jsonl"
+}

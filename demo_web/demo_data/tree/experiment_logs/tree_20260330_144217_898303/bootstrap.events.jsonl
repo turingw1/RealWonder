@@ -1,0 +1,5 @@
+{"run_id": "tree_20260330_144217_898303", "experiment_name": "interactive_demo_bootstrap", "run_name": "tree", "timestamp": "2026-03-30 14:44:40", "stage": "demo.startup.initialize_video_generator", "duration_sec": 142.74175573140383}
+{"run_id": "tree_20260330_144217_898303", "experiment_name": "interactive_demo_bootstrap", "run_name": "tree", "timestamp": "2026-03-30 14:46:06", "stage": "demo.startup.initialize_simulator", "duration_sec": 86.2410542331636}
+{"run_id": "tree_20260330_144217_898303", "experiment_name": "interactive_demo_bootstrap", "run_name": "tree", "timestamp": "2026-03-30 14:46:07", "stage": "demo.startup.initialize_case_handler", "duration_sec": 0.07410154864192009}
+{"run_id": "tree_20260330_144217_898303", "experiment_name": "interactive_demo_bootstrap", "run_name": "tree", "timestamp": "2026-03-30 14:46:07", "stage": "demo.startup.initialize_noise_warper", "duration_sec": 0.06460896879434586}
+{"run_id": "tree_20260330_144217_898303", "experiment_name": "interactive_demo_bootstrap", "run_name": "tree", "timestamp": "2026-03-30 14:46:21", "stage": "demo.startup.precompute_first_frame", "duration_sec": 14.41968210041523}

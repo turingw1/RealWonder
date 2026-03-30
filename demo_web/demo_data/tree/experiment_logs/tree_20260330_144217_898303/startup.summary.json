@@ -1,0 +1,18 @@
+{
+  "run_id": "tree_20260330_144217_898303",
+  "experiment_name": "interactive_demo_startup",
+  "run_name": "tree",
+  "status": "completed",
+  "start_time": "2026-03-30 14:46:21",
+  "end_time": "2026-03-30 14:46:36",
+  "total_duration_sec": 15.023737251758575,
+  "event_count": 3,
+  "host": "modelarts-job-1801fbd6-9f84-4b0f-8c02-e7a6751a19d7-worker-0",
+  "cwd": "/home/ma-user/workspace/Zhengwei/RealWonder",
+  "cuda_visible_devices": "1",
+  "metadata": {
+    "case_name": "tree"
+  },
+  "events_path": "demo_web/demo_data/tree/experiment_logs/tree_20260330_144217_898303/startup.events.jsonl",
+  "total_warmup_sec": 15.023242812603712
+}

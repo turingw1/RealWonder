@@ -1,0 +1,3 @@
+{"run_id": "persimmon_20260330_142737_3ac0dc", "experiment_name": "interactive_demo_startup", "run_name": "persimmon", "timestamp": "2026-03-30 14:31:03", "stage": "demo.startup_warmup.sim_render", "duration_sec": 3.5591889023780823}
+{"run_id": "persimmon_20260330_142737_3ac0dc", "experiment_name": "interactive_demo_startup", "run_name": "persimmon", "timestamp": "2026-03-30 14:31:03", "stage": "demo.startup_warmup.noise_warp", "duration_sec": 0.07208157703280449}
+{"run_id": "persimmon_20260330_142737_3ac0dc", "experiment_name": "interactive_demo_startup", "run_name": "persimmon", "timestamp": "2026-03-30 14:31:10", "stage": "demo.startup_warmup.vae_diffusion", "duration_sec": 6.48977429792285}
