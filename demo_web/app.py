@@ -17,6 +17,7 @@ import argparse
 import base64
 import io
 import threading
+import time
 from pathlib import Path
 from queue import Queue, Full as QueueFull, Empty as QueueEmpty
 
@@ -432,7 +433,6 @@ def generation_loop(prompt):
 
         # --- Stage 3: VAE Encode + Mask Build + Diffusion ---
         # --- Stage 4: Frame streaming (separate thread, runs concurrently) ---
-        import time
         stream_queue = Queue(maxsize=2)  # Stage 3 → Stage 4
 
         def frame_streamer():
