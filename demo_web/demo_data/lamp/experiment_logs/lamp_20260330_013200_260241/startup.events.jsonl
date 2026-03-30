@@ -1,3 +1,0 @@
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_startup", "run_name": "lamp", "timestamp": "2026-03-30 01:34:57", "stage": "demo.startup_warmup.sim_render", "duration_sec": 1.7123942822217941}
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_startup", "run_name": "lamp", "timestamp": "2026-03-30 01:34:58", "stage": "demo.startup_warmup.noise_warp", "duration_sec": 0.4863055944442749}
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_startup", "run_name": "lamp", "timestamp": "2026-03-30 01:35:04", "stage": "demo.startup_warmup.vae_diffusion", "duration_sec": 6.2402925081551075}

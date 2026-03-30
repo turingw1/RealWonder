@@ -1,5 +1,0 @@
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_bootstrap", "run_name": "lamp", "timestamp": "2026-03-30 01:34:25", "stage": "demo.startup.initialize_video_generator", "duration_sec": 144.390759319067}
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_bootstrap", "run_name": "lamp", "timestamp": "2026-03-30 01:34:36", "stage": "demo.startup.initialize_simulator", "duration_sec": 11.032470218837261}
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_bootstrap", "run_name": "lamp", "timestamp": "2026-03-30 01:34:36", "stage": "demo.startup.initialize_case_handler", "duration_sec": 0.05075844004750252}
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_bootstrap", "run_name": "lamp", "timestamp": "2026-03-30 01:34:36", "stage": "demo.startup.initialize_noise_warper", "duration_sec": 0.04223700240254402}
-{"run_id": "lamp_20260330_013200_260241", "experiment_name": "interactive_demo_bootstrap", "run_name": "lamp", "timestamp": "2026-03-30 01:34:56", "stage": "demo.startup.precompute_first_frame", "duration_sec": 19.651885338127613}
