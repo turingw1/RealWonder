@@ -80,7 +80,9 @@ Captures warmup phases:
 
 Captures one interactive generation request:
 
-- `demo.stage1_render_flow_block`
+- `demo.prepare_generation`
+- `demo.stage1a_physics_block`
+- `demo.stage1b_render_flow_block`
 - `demo.stage2_noise_warp_block`
 - `demo.stage3_diffusion_block`
 
@@ -94,16 +96,23 @@ All events contain:
 - `experiment_name`
 - `run_name`
 - `timestamp`
+- `start_time`
+- `end_time`
 - `stage`
 - `duration_sec`
+- `relative_start_sec`
+- `relative_end_sec`
 
 Common additional fields:
 
 - `block_idx`
 - `queue_wait_sec`
+- `active_duration_sec`
+- `gap_since_prev_block_end_sec`
 - `physics_step_total_sec`
 - `render_flow_total_sec`
 - `resize_total_sec`
+- `queue_put_sec`
 - `warp_steps_sec`
 - `get_block_noise_sec`
 - `vae_encode_sec`
@@ -167,7 +176,9 @@ python scripts/plot_interactive_demo_timing.py \
 The generated figure is designed to match the article's pipeline logic:
 
 - startup and warmup are shown as early sequential phases
-- Stage 1 (`sim`) shows physics, render+flow, and resize time
+- `prepare_generation` is shown separately before the steady-state pipeline
+- Stage 1a (`physics`) shows physics stepping and queue handoff time
+- Stage 1b (`render`) shows queue wait, render+flow, resize, and queue handoff time
 - Stage 2 (`warp`) shows queue wait and noise warp time
 - Stage 3 (`diffusion`) shows queue wait, VAE encode, mask build, and diffusion time
 - queue wait is rendered as a gray hatched segment so block overlap is easy to see

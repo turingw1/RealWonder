@@ -31,6 +31,7 @@ class ExperimentLogger:
 
         self.run_id = self.output_dir.name
         self.start_perf = time.perf_counter()
+        self.start_time_epoch = time.time()
         self.start_time = _now_local()
         self.metadata = metadata or {}
         self.events = []
@@ -47,11 +48,28 @@ class ExperimentLogger:
         }
 
     def log_event(self, stage, duration_sec=None, **payload):
+        start_perf = payload.pop("start_perf", None)
+        end_perf = payload.pop("end_perf", None)
+        if end_perf is None:
+            end_perf = time.perf_counter()
+        if duration_sec is None and start_perf is not None:
+            duration_sec = end_perf - start_perf
+        if start_perf is None:
+            if duration_sec is not None:
+                start_perf = end_perf - duration_sec
+            else:
+                start_perf = end_perf
+
+        end_time = _now_local()
         record = {
             **self._base(),
-            "timestamp": _now_local(),
+            "timestamp": end_time,
+            "start_time": _format_local_from_offset(self.start_time_epoch, start_perf - self.start_perf),
+            "end_time": end_time,
             "stage": stage,
             "duration_sec": duration_sec,
+            "relative_start_sec": start_perf - self.start_perf,
+            "relative_end_sec": end_perf - self.start_perf,
             **{k: _json_safe(v) for k, v in payload.items()},
         }
         self.events.append(record)
@@ -64,15 +82,17 @@ class ExperimentLogger:
         try:
             yield
         finally:
-            self.log_event(stage, time.perf_counter() - start, **payload)
+            end = time.perf_counter()
+            self.log_event(stage, end - start, start_perf=start, end_perf=end, **payload)
 
     def finalize(self, *, status="completed", **payload):
+        end_perf = time.perf_counter()
         summary = {
             **self._base(),
             "status": status,
             "start_time": self.start_time,
             "end_time": _now_local(),
-            "total_duration_sec": time.perf_counter() - self.start_perf,
+            "total_duration_sec": end_perf - self.start_perf,
             "event_count": len(self.events),
             "host": socket.gethostname(),
             "cwd": os.getcwd(),
@@ -96,7 +116,11 @@ def create_session_dir(base_dir, run_name):
 
 
 def _now_local():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+
+def _format_local_from_offset(start_epoch, offset_sec):
+    return datetime.fromtimestamp(start_epoch + offset_sec).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
 def _experiment_label(experiment_name):

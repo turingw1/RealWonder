@@ -216,6 +216,9 @@ def generation_loop(prompt):
                     if stop_requested:
                         break
                     n_pixel = FRAMES_FIRST_BLOCK_PIXEL if block_idx == 0 else FRAMES_PER_BLOCK_PIXEL
+                    t_block_start = time.perf_counter()
+                    t_step_total = 0.0
+                    t_queue_total = 0.0
                     for pf_idx in range(n_pixel):
                         if stop_requested:
                             break
@@ -224,17 +227,32 @@ def generation_loop(prompt):
                         for i in range(frame_steps):
                             updated_points = simulator.step(extract_points=(i == last_i))
                         t_step = time.perf_counter() - t0
+                        t_step_total += t_step
                         # Capture frame_id here: render thread may be behind
                         frame_id = simulator.step_count
                         item = (block_idx, n_pixel, pf_idx,
                                 updated_points, frame_id, t_step)
                         # Timed put so stop_requested is checked if render stops consuming
+                        t_put_start = time.perf_counter()
                         while not stop_requested:
                             try:
                                 physics_queue.put(item, timeout=0.5)
                                 break
                             except QueueFull:
                                 pass
+                        t_queue_total += time.perf_counter() - t_put_start
+                    t_block_end = time.perf_counter()
+                    exp_logger.log_event(
+                        "demo.stage1a_physics_block",
+                        t_block_end - t_block_start,
+                        start_perf=t_block_start,
+                        end_perf=t_block_end,
+                        block_idx=block_idx,
+                        pixel_frames=n_pixel,
+                        physics_step_total_sec=t_step_total,
+                        queue_put_sec=t_queue_total,
+                        active_duration_sec=t_step_total + t_queue_total,
+                    )
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -256,24 +274,32 @@ def generation_loop(prompt):
             try:
                 current_block = -1
                 flows, sim_frames, fg_masks, mesh_masks = [], [], [], []
-                t_block_start = time.perf_counter()
-                t_step_total = t_render_total = t_resize_total = 0.0
+                t_block_start = None
+                t_render_total = t_resize_total = t_queue_put_total = t_wait_total = 0.0
+                pending_wait_anchor = time.perf_counter()
 
                 while not stop_requested:
+                    t_get_start = time.perf_counter()
                     try:
                         item = physics_queue.get(timeout=0.5)
                     except QueueEmpty:
+                        if current_block != -1:
+                            t_wait_total += time.perf_counter() - t_get_start
                         continue
+                    t_get_end = time.perf_counter()
                     if item is None:
                         break
 
                     block_idx, n_pixel, pf_idx, updated_points, frame_id, t_step = item
 
-                    if block_idx != current_block:
+                    if current_block == -1:
                         current_block = block_idx
                         flows, sim_frames, fg_masks, mesh_masks = [], [], [], []
-                        t_block_start = time.perf_counter()
-                        t_step_total = t_render_total = t_resize_total = 0.0
+                        t_block_start = pending_wait_anchor
+                        t_wait_total = t_get_end - pending_wait_anchor
+                        t_render_total = t_resize_total = t_queue_put_total = 0.0
+                    else:
+                        t_wait_total += t_get_end - t_get_start
 
                     t0 = time.perf_counter()
                     frame_pil, flow_2hw, fg_mask, mesh_mask = (
@@ -288,7 +314,6 @@ def generation_loop(prompt):
                     fg_masks.append(fg_mask)
                     mesh_masks.append(mesh_mask)
 
-                    t_step_total   += t_step
                     t_render_total += t1 - t0
                     t_resize_total += t2 - t1
 
@@ -298,24 +323,30 @@ def generation_loop(prompt):
                             all_sim_frames.extend(sim_frames)
                         sim_queue.put((block_idx, flows, sim_frames, fg_masks, mesh_masks))
                         t_queue_end = time.perf_counter()
+                        t_queue_put_total += t_queue_end - t_queue_start
                         total_stage = t_queue_end - t_block_start
                         print(f"[TIMING] sim block {block_idx}: "
-                              f"physics step = {t_step_total:.3f}s, "
+                              f"queue wait = {t_wait_total:.3f}s, "
                               f"render+flow = {t_render_total:.3f}s, "
                               f"resize = {t_resize_total:.3f}s, "
                               f"queue put = {t_queue_end - t_queue_start:.3f}s, "
                               f"total = {total_stage:.3f}s "
                               f"({n_pixel} frames)")
                         exp_logger.log_event(
-                            "demo.stage1_render_flow_block",
+                            "demo.stage1b_render_flow_block",
                             total_stage,
+                            start_perf=t_block_start,
+                            end_perf=t_queue_end,
                             block_idx=block_idx,
                             pixel_frames=n_pixel,
-                            physics_step_total_sec=t_step_total,
+                            queue_wait_sec=t_wait_total,
                             render_flow_total_sec=t_render_total,
                             resize_total_sec=t_resize_total,
                             queue_put_sec=t_queue_end - t_queue_start,
+                            active_duration_sec=t_render_total + t_resize_total + t_queue_put_total,
                         )
+                        current_block = -1
+                        pending_wait_anchor = t_queue_end
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -350,7 +381,7 @@ def generation_loop(prompt):
                         sim_frames, fg_masks, mesh_masks,
                     ))
                     t3 = time.perf_counter()
-                    total_stage = t3 - t_wait_end
+                    total_stage = t3 - t_wait_start
 
                     print(f"[TIMING] warp block {block_idx}: "
                           f"queue wait = {t_wait_end - t_wait_start:.3f}s, "
@@ -361,11 +392,14 @@ def generation_loop(prompt):
                     exp_logger.log_event(
                         "demo.stage2_noise_warp_block",
                         total_stage,
+                        start_perf=t_wait_start,
+                        end_perf=t3,
                         block_idx=block_idx,
                         queue_wait_sec=t_wait_end - t_wait_start,
                         warp_steps_sec=t1 - t0,
                         get_block_noise_sec=t2 - t1,
                         queue_put_sec=t3 - t2,
+                        active_duration_sec=(t1 - t0) + (t2 - t1) + (t3 - t2),
                     )
             except Exception as e:
                 import traceback
@@ -386,7 +420,15 @@ def generation_loop(prompt):
 
         # Text encoding (+ conditional dict setup) runs while sim pipeline
         # is already producing frames.
+        t_prep0 = time.perf_counter()
         generator.prepare_generation(prompt)
+        t_prep1 = time.perf_counter()
+        exp_logger.log_event(
+            "demo.prepare_generation",
+            t_prep1 - t_prep0,
+            start_perf=t_prep0,
+            end_perf=t_prep1,
+        )
 
         # --- Stage 3: VAE Encode + Mask Build + Diffusion ---
         # --- Stage 4: Frame streaming (separate thread, runs concurrently) ---
@@ -426,8 +468,9 @@ def generation_loop(prompt):
             (block_idx, structured_noise, sde_noise,
              sim_frames, fg_masks, mesh_masks) = item
 
+            gap_since_prev_block_end = t_wait_end - t_block_end
             print(f"[TIMING] block {block_idx}: queue wait = {t_wait_end - t_wait_start:.3f}s, "
-                  f"gap since prev block end = {t_wait_end - t_block_end:.3f}s")
+                  f"gap since prev block end = {gap_since_prev_block_end:.3f}s")
 
             socketio.emit("status", {
                 "message": f"Block {block_idx + 1}/{num_blocks} — Generating...",
@@ -472,7 +515,7 @@ def generation_loop(prompt):
 
             # Hand off frames to streaming thread (non-blocking)
             stream_queue.put((pixel_frames, block_idx))
-            total_stage = t3 - t_wait_end
+            total_stage = t3 - t_wait_start
 
             print(f"[TIMING] block {block_idx}: VAE encode = {t1 - t0:.3f}s, "
                   f"mask build = {t2 - t1:.3f}s, diffusion = {t3 - t2:.3f}s, "
@@ -480,11 +523,15 @@ def generation_loop(prompt):
             exp_logger.log_event(
                 "demo.stage3_diffusion_block",
                 total_stage,
+                start_perf=t_wait_start,
+                end_perf=t3,
                 block_idx=block_idx,
                 queue_wait_sec=t_wait_end - t_wait_start,
+                gap_since_prev_block_end_sec=gap_since_prev_block_end,
                 vae_encode_sec=t1 - t0,
                 mask_build_sec=t2 - t1,
                 diffusion_sec=t3 - t2,
+                active_duration_sec=(t1 - t0) + (t2 - t1) + (t3 - t2),
             )
             t_block_end = t3
 
