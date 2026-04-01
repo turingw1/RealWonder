@@ -5,6 +5,7 @@ streaming calls, enabling real-time generation with interactive control.
 """
 
 from typing import List, Optional
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -89,7 +90,7 @@ class StreamingVideoGenerator:
                                                        use_separate_encode_vae=True)
         log_gpu("after pipeline init (on CPU)")
 
-        state_dict = torch.load(self.checkpoint_path, map_location="cpu")
+        state_dict = torch.load(self.checkpoint_path, map_location="cpu", weights_only=True)
         key = "generator_ema" if self.use_ema else "generator"
         gen_state_dict = state_dict[key]
         try:
@@ -120,11 +121,7 @@ class StreamingVideoGenerator:
 
             taehv_path = os.path.join(os.path.dirname(__file__), "checkpoints", "taew2_1.pth")
             taehv_path = os.path.abspath(taehv_path)
-            if not os.path.exists(taehv_path):
-                os.makedirs(os.path.dirname(taehv_path), exist_ok=True)
-                url = "https://github.com/madebyollin/taehv/raw/main/taew2_1.pth"
-                print(f"Downloading TAEHV weights from {url} ...")
-                urllib.request.urlretrieve(url, taehv_path)
+            self._ensure_taehv_weights(taehv_path, urllib.request)
 
             print("Loading TAEHV decoder...")
             self.taehv_decoder = TAEHV(checkpoint_path=taehv_path).to(
@@ -154,6 +151,50 @@ class StreamingVideoGenerator:
         self.is_setup = True
         log_gpu("setup complete")
         print("StreamingVideoGenerator setup complete")
+
+    def _ensure_taehv_weights(self, taehv_path: str, urllib_request):
+        """Download TAEHV weights if needed and validate they are loadable.
+
+        Network failures on shared servers often produce HTML or truncated
+        files at the target path. Validate eagerly so setup fails with a
+        clear message instead of an opaque `torch.load` OSError later.
+        """
+        path = Path(taehv_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        url = "https://raw.githubusercontent.com/madebyollin/taehv/main/taew2_1.pth"
+
+        def _is_valid_checkpoint(candidate: Path) -> bool:
+            if not candidate.exists() or candidate.stat().st_size < 1024 * 1024:
+                return False
+            try:
+                torch.load(candidate, map_location="cpu", weights_only=True)
+                return True
+            except Exception:
+                return False
+
+        if not _is_valid_checkpoint(path):
+            if path.exists():
+                print(f"Existing TAEHV file looks invalid, removing: {path}")
+                path.unlink()
+
+            tmp_path = path.with_suffix(path.suffix + ".tmp")
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+            print(f"Downloading TAEHV weights from {url} ...")
+            urllib_request.urlretrieve(url, tmp_path.as_posix())
+
+            if not _is_valid_checkpoint(tmp_path):
+                size = tmp_path.stat().st_size if tmp_path.exists() else 0
+                raise RuntimeError(
+                    "Downloaded TAEHV checkpoint is invalid. "
+                    f"path={tmp_path} size={size} bytes. "
+                    "This usually means the server downloaded an HTML error page "
+                    "or a truncated file. Delete the file and retry, or download "
+                    "the checkpoint manually from a stable network."
+                )
+
+            tmp_path.replace(path)
 
     def precompute_first_frame(self, first_frame_path: str, default_prompt: str = ""):
         """Pre-compute all user-input-independent work at startup."""
