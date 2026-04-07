@@ -140,6 +140,8 @@ Install demo-only dependencies if not already installed:
 ```bash
 cd ~/workspace/Zhengwei/RealWonder
 conda activate realwonder
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 python -m pip install -r demo_web/requirements.txt
 ```
 

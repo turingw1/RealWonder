@@ -147,7 +147,13 @@ export TORCH_EXTENSIONS_DIR=/cache/Zhengwei/RealWonder/torch_extensions
 export TRITON_CACHE_DIR=/cache/Zhengwei/RealWonder/triton
 export WARP_CACHE_DIR=/cache/Zhengwei/RealWonder/warp
 export XDG_CACHE_HOME=/cache/Zhengwei/RealWonder/tmp
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 ```
+
+This keeps ordinary Python packages on the Tsinghua mirror while still allowing NVIDIA and PyTorch wheels to resolve from their official extra indexes.
+
+Apply these only in the current terminal on a shared server. Do not rewrite system-wide shell startup files just to change package mirrors.
 
 For Hugging Face on shared servers, do not rely blindly on a globally exported group token. Prefer overriding credentials only in the current terminal or on a single command:
 
@@ -249,6 +255,8 @@ The order below is intentionally different from a naive `README` run. It is base
 
 ```bash
 conda activate realwonder
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 python -m pip install -U pip setuptools wheel ninja packaging
 python -m pip install hatchling hatch-requirements-txt editables
 ```
@@ -258,6 +266,7 @@ python -m pip install hatchling hatch-requirements-txt editables
 ```bash
 cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
 conda activate realwonder
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 export TORCH_CUDA_ARCH_LIST="8.0"
 export MAX_JOBS=4
@@ -416,6 +425,8 @@ python -c "import genesis as gs; print(gs.__version__)"
 ```bash
 cd ~/workspace/Zhengwei/RealWonder
 conda activate realwonder
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 python -m pip install -r requirements.txt
 ```
 
@@ -472,6 +483,8 @@ python -c "import diffusers, open_clip, kornia; print('root deps ok')"
 Optional demo dependencies:
 
 ```bash
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 python -m pip install -r demo_web/requirements.txt
 ```
 

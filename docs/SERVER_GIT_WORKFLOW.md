@@ -304,6 +304,8 @@ If dependency files changed, rerun only the relevant install step.
 Examples:
 
 ```bash
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 python -m pip install -r requirements.txt
 python -m pip install -r demo_web/requirements.txt
 ```
@@ -368,4 +370,3 @@ The server should now be operated under this default assumption:
 - stable work reaches `main` only through PR and merge
 
 That is the collaboration-first workflow going forward.
-
