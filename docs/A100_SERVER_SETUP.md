@@ -253,7 +253,29 @@ python -m pip install -v --no-build-isolation \
   "pytorch3d @ git+https://github.com/facebookresearch/pytorch3d.git@75ebeeaea0908c5527e7b1e305fbc7681382db47"
 ```
 
-If it fails with `fatbinary died due to signal 11`, retry the same command after enabling system CUDA as described in Section 6.
+If `pip` fails while cloning into `/tmp/pip-install-*`, for example:
+
+- `fatal: unable to checkout working tree`
+- `Clone succeeded, but checkout failed`
+- `git clone --filter=blob:none ... did not run successfully`
+
+stop using the direct Git URL through `pip`. Clone once into cache and install from the local checkout instead:
+
+```bash
+mkdir -p $RW_CACHE/src
+cd $RW_CACHE/src
+rm -rf pytorch3d
+git clone https://github.com/facebookresearch/pytorch3d.git pytorch3d
+cd pytorch3d
+git checkout 75ebeeaea0908c5527e7b1e305fbc7681382db47
+
+conda activate $RW_ENV_PREFIX
+python -m pip install -v --no-build-isolation .
+```
+
+If GitHub is unstable, keep the current-terminal Git overrides from Section 2 enabled before the clone.
+
+If the local install fails with `fatbinary died due to signal 11`, retry the local install after enabling system CUDA as described in Section 6.
 
 ### 7.4 SAM 3D Objects Inference Extras
 
@@ -468,7 +490,31 @@ python -m pip install appdirs
 
 Do not trust the umbrella extra. Install them explicitly as in Sections 7.2 and 7.3.
 
-### 9.5 Git clone fails with HTTP/2 errors
+### 9.5 `pip` fails while cloning `pytorch3d` into `/tmp/pip-install-*`
+
+Typical symptoms:
+
+- `fatal: unable to checkout working tree`
+- `Clone succeeded, but checkout failed`
+- `git clone --filter=blob:none ... exit code: 128`
+
+Use a persistent local checkout under `$RW_CACHE/src` instead of letting `pip` manage the clone in `/tmp`:
+
+```bash
+mkdir -p $RW_CACHE/src
+cd $RW_CACHE/src
+rm -rf pytorch3d
+git clone https://github.com/facebookresearch/pytorch3d.git pytorch3d
+cd pytorch3d
+git checkout 75ebeeaea0908c5527e7b1e305fbc7681382db47
+
+conda activate $RW_ENV_PREFIX
+python -m pip install -v --no-build-isolation .
+```
+
+If GitHub is unstable, enable the current-terminal Git overrides from Section 2 first.
+
+### 9.6 Git clone fails with HTTP/2 errors
 
 Use current-terminal Git overrides:
 
@@ -480,7 +526,7 @@ export GIT_CONFIG_KEY_1=http.version
 export GIT_CONFIG_VALUE_1=HTTP/1.1
 ```
 
-### 9.6 `glm/...: No such file or directory` while building `gsplat`
+### 9.7 `glm/...: No such file or directory` while building `gsplat`
 
 The repo was cloned without recursive submodules:
 
@@ -488,11 +534,11 @@ The repo was cloned without recursive submodules:
 git submodule update --init --recursive
 ```
 
-### 9.7 `fatbinary died due to signal 11`
+### 9.8 `fatbinary died due to signal 11`
 
 This indicates a broken or unstable CUDA toolchain in the current environment. Retry the build with system CUDA from Section 6.
 
-### 9.8 `sam3d_objects.init` missing
+### 9.9 `sam3d_objects.init` missing
 
 This repo snapshot imports `sam3d_objects.init` from `sam3d_objects/__init__.py`, but that file does not exist. Use this for validation:
 
@@ -500,7 +546,7 @@ This repo snapshot imports `sam3d_objects.init` from `sam3d_objects/__init__.py`
 LIDRA_SKIP_INIT=1 python -c "import sam3d_objects; print('ok')"
 ```
 
-### 9.9 `open-clip-torch` requires `timm>=1.0.17`, but `sam3d_objects` installs `timm==0.9.16`
+### 9.10 `open-clip-torch` requires `timm>=1.0.17`, but `sam3d_objects` installs `timm==0.9.16`
 
 Record the conflict and validate runtime before changing `timm`. Do not blindly upgrade it during base setup.
 
