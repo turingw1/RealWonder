@@ -1,222 +1,149 @@
-# RealWonder A100 Server Setup And Git Migration Guide
+# RealWonder A100 Server Setup Guide
 
-This guide is for deploying RealWonder on an A100 server under:
+This is the canonical environment setup manual for deploying RealWonder on a shared A100 server.
 
-- Workspace: `~/workspace/Zhengwei/RealWonder/`
-- Large-file cache root: `/cache/Zhengwei/RealWonder/`
+It is written for this server layout:
 
-It assumes:
+- Workspace repo: `~/workspace/Zhengwei/RealWonder`
+- Cache root: `/cache/Zhengwei/RealWonder`
+- Conda environment prefix: `/cache/Zhengwei/RealWonder/conda_envs/realwonder`
 
-- The server already has a Conda environment named `realwonder`
-- The server may access GitHub slowly or intermittently
-- Large files must be stored under `/cache/Zhengwei`
-- You want to manage the code in your own GitHub repository instead of the upstream repository
+This guide is opinionated. It reflects the real failure cases already seen during setup:
 
-## 1. Convert The Current Directory Into Your Own Git Repo
+- workspace quota and `.git/modules` growth
+- GitHub clone instability
+- `hatchling` / `editables` missing for editable installs
+- `flash_attn` pretending to build while actually compiling for a long time
+- `pytorch3d` and `gsplat` failing in CUDA extension builds
+- `nvidia-pyindex` failing because `appdirs` is missing
+- gated Hugging Face repos returning `403` on mirrors
+- large wheel downloads being too slow to trust in one-shot installs
 
-The current local repository still points to upstream:
+The priority is:
 
-- upstream repo: `https://github.com/liuwei283/RealWonder.git`
+1. keep the workspace small
+2. keep the conda environment and large caches under `/cache`
+3. use current-terminal-only environment variables on shared servers
+4. prefer explicit installs over optimistic umbrella commands
 
-Before pushing to your own GitHub, keep the current upstream as `upstream` and add your own repository as `origin`.
+## 1. One-Time Directory Layout
 
-### 1.1 Create your empty GitHub repository
-
-Create an empty repository on GitHub first, for example:
-
-- `git@github.com:<your-user>/RealWonder.git`
-
-### 1.2 Repoint remotes locally
-
-Run locally in this repository:
-
-```bash
-cd /home/gzwlinux/vscode/gitProject/RealWonder
-git remote rename origin upstream
-git remote add origin git@github.com:<your-user>/RealWonder.git
-git remote -v
-```
-
-Expected result:
-
-- `origin` points to your GitHub repo
-- `upstream` points to `liuwei283/RealWonder`
-
-### 1.3 Make sure submodules are tracked correctly
-
-This repository currently has real directories under `submodules/`, but the root repository may not yet have recorded gitlinks for them. Before your first push, verify that the submodule paths are tracked as mode `160000`.
-
-Run:
+Create the cache layout first:
 
 ```bash
-git add .gitmodules \
-  submodules/sam_3d_objects \
-  submodules/sam2 \
-  submodules/Genesis \
-  submodules/flux_controlnet_inpainting
-
-git ls-files --stage submodules/sam_3d_objects
-git ls-files --stage submodules/sam2
-git ls-files --stage submodules/Genesis
-git ls-files --stage submodules/flux_controlnet_inpainting
+mkdir -p /cache/Zhengwei/RealWonder/{conda_envs,hf,torch,torch_extensions,triton,warp,tmp,logs,wheels,src}
+mkdir -p /cache/Zhengwei/RealWonder/{ckpts,wan_models}
+mkdir -p /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints
+mkdir -p /cache/Zhengwei/RealWonder/sam2/checkpoints
 ```
 
-If the first column is `160000`, they are tracked as submodules correctly.
-
-Then commit and push:
+Recommended shell variables for the current terminal:
 
 ```bash
-git commit -m "Track RealWonder submodules and add A100 deployment docs"
-git push -u origin main
+export RW_ROOT=~/workspace/Zhengwei/RealWonder
+export RW_CACHE=/cache/Zhengwei/RealWonder
+export RW_ENV_PREFIX=/cache/Zhengwei/RealWonder/conda_envs/realwonder
+
+export HF_HOME=$RW_CACHE/hf
+export HUGGINGFACE_HUB_CACHE=$RW_CACHE/hf/hub
+export TORCH_HOME=$RW_CACHE/torch
+export TORCH_EXTENSIONS_DIR=$RW_CACHE/torch_extensions
+export TRITON_CACHE_DIR=$RW_CACHE/triton
+export WARP_CACHE_DIR=$RW_CACHE/warp
+export XDG_CACHE_HOME=$RW_CACHE/tmp
+
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
+export PIP_FIND_LINKS="https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu121.html"
 ```
 
-If `git add` reports embedded-repository issues instead of recording gitlinks, re-register them explicitly:
+Notes:
 
-```bash
-git submodule add -f https://github.com/facebookresearch/sam-3d-objects.git submodules/sam_3d_objects
-git submodule add -f https://github.com/facebookresearch/sam2.git submodules/sam2
-git submodule add -f https://github.com/Genesis-Embodied-AI/Genesis.git submodules/Genesis
-git submodule add -f https://github.com/alimama-creative/FLUX-Controlnet-Inpainting.git submodules/flux_controlnet_inpainting
-```
+- `PIP_INDEX_URL` keeps ordinary Python packages on the Tsinghua mirror.
+- `PIP_EXTRA_INDEX_URL` keeps PyTorch and NVIDIA wheels reachable.
+- Do not write these into global shell startup files on a shared server unless you control the account.
 
-Then repeat `git add`, `git commit`, and `git push`.
+## 2. Git Clone And Sync
 
-## 2. Clone Your Repo On The Server
-
-Target path:
+Clone into the workspace:
 
 ```bash
 mkdir -p ~/workspace/Zhengwei
 cd ~/workspace/Zhengwei
-```
-
-Preferred:
-
-```bash
-git clone --recursive git@github.com:<your-user>/RealWonder.git
+git clone --recursive https://github.com/<your-user>/RealWonder.git
 cd RealWonder
 ```
 
-If direct GitHub is slow, try a `githubfast` mirror:
+If GitHub is unstable, use current-terminal Git overrides instead of changing global Git config:
 
 ```bash
-git clone --recursive https://githubfast.com/<your-user>/RealWonder.git
+export GIT_CONFIG_COUNT=2
+export GIT_CONFIG_KEY_0=url.https://githubfast.com/.insteadOf
+export GIT_CONFIG_VALUE_0=https://github.com/
+export GIT_CONFIG_KEY_1=http.version
+export GIT_CONFIG_VALUE_1=HTTP/1.1
 ```
 
-If the mirror also fails, use one of these fallbacks:
-
-- clone locally and `rsync` the whole repository to the server
-- create a tarball locally and upload it
-- upload only the repo plus submodules, then run `git remote set-url origin ...` on the server
-
-### 2.1 Sync submodules after clone
-
-Even after `--recursive`, run this once:
+Then sync submodules:
 
 ```bash
+cd $RW_ROOT
+git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
 Pin Genesis to the tested commit:
 
 ```bash
-git -C submodules/Genesis checkout 3aa206cd84729bc7cc14fb4007aeb95a0bead7aa
-git -C submodules/Genesis submodule update --init --recursive
+git -C $RW_ROOT/submodules/Genesis checkout 3aa206cd84729bc7cc14fb4007aeb95a0bead7aa
+git -C $RW_ROOT/submodules/Genesis submodule update --init --recursive
 ```
 
-## 3. Cache Layout Under `/cache/Zhengwei`
+## 3. Keep Runtime Paths Stable With Symlinks
 
-Do not store large checkpoints or build caches in the workspace.
-
-Create this layout:
+Large files should live in cache, but runtime code still expects repo-relative paths.
 
 ```bash
-mkdir -p /cache/Zhengwei/RealWonder/{hf,torch,torch_extensions,triton,warp,logs,tmp}
-mkdir -p /cache/Zhengwei/RealWonder/{ckpts,wan_models}
-mkdir -p /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints
-mkdir -p /cache/Zhengwei/RealWonder/sam2/checkpoints
+cd $RW_ROOT
+
+ln -sfn $RW_CACHE/ckpts ckpts
+ln -sfn $RW_CACHE/wan_models wan_models
+ln -sfn $RW_CACHE/sam3d_objects/checkpoints submodules/sam_3d_objects/checkpoints
+
+ln -sf $RW_CACHE/sam2/checkpoints/sam2.1_hiera_tiny.pt submodules/sam2/checkpoints/sam2.1_hiera_tiny.pt
+ln -sf $RW_CACHE/sam2/checkpoints/sam2.1_hiera_small.pt submodules/sam2/checkpoints/sam2.1_hiera_small.pt
+ln -sf $RW_CACHE/sam2/checkpoints/sam2.1_hiera_base_plus.pt submodules/sam2/checkpoints/sam2.1_hiera_base_plus.pt
+ln -sf $RW_CACHE/sam2/checkpoints/sam2.1_hiera_large.pt submodules/sam2/checkpoints/sam2.1_hiera_large.pt
 ```
 
-Recommended environment variables:
+## 4. Conda Environment In Cache
+
+Do not use a named environment under `/home/ma-user/miniconda3/envs/...` for this project. Use a prefix environment in cache.
+
+### 4.1 Create It
 
 ```bash
-export HF_HOME=/cache/Zhengwei/RealWonder/hf
-export HUGGINGFACE_HUB_CACHE=/cache/Zhengwei/RealWonder/hf/hub
-export TORCH_HOME=/cache/Zhengwei/RealWonder/torch
-export TORCH_EXTENSIONS_DIR=/cache/Zhengwei/RealWonder/torch_extensions
-export TRITON_CACHE_DIR=/cache/Zhengwei/RealWonder/triton
-export WARP_CACHE_DIR=/cache/Zhengwei/RealWonder/warp
-export XDG_CACHE_HOME=/cache/Zhengwei/RealWonder/tmp
-export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
+conda create -y -p $RW_ENV_PREFIX python=3.11
+conda activate $RW_ENV_PREFIX
 ```
 
-This keeps ordinary Python packages on the Tsinghua mirror while still allowing NVIDIA and PyTorch wheels to resolve from their official extra indexes.
-
-Apply these only in the current terminal on a shared server. Do not rewrite system-wide shell startup files just to change package mirrors.
-
-For Hugging Face on shared servers, do not rely blindly on a globally exported group token. Prefer overriding credentials only in the current terminal or on a single command:
+Optional: if you need a fresh rebuild and the prefix is already corrupted:
 
 ```bash
-export HF_TOKEN="<your-personal-hf-token>"
-export HUGGINGFACE_TOKEN="$HF_TOKEN"
+conda deactivate
+rm -rf $RW_ENV_PREFIX
+conda create -y -p $RW_ENV_PREFIX python=3.11
+conda activate $RW_ENV_PREFIX
 ```
 
-Mirror usage policy:
-
-- public repos: prefer `https://hf-mirror.com`
-- gated repos: test mirror first, but fall back to `https://huggingface.co` if mirror returns `403`
-- never change system-wide shell startup files just to switch tokens or endpoints
-
-To keep runtime paths unchanged, use symlinks:
+### 4.2 Bootstrap Core Packaging Tools
 
 ```bash
-cd ~/workspace/Zhengwei/RealWonder
-
-rm -rf ckpts
-ln -s /cache/Zhengwei/RealWonder/ckpts ckpts
-
-rm -rf wan_models
-ln -s /cache/Zhengwei/RealWonder/wan_models wan_models
-
-rm -rf submodules/sam_3d_objects/checkpoints
-ln -s /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints submodules/sam_3d_objects/checkpoints
+python -m pip install -U pip setuptools wheel ninja packaging
+python -m pip install hatchling hatch-requirements-txt editables appdirs
 ```
 
-For SAM2, keep the script directory itself but place checkpoint files in cache and link them back:
-
-```bash
-ln -sf /cache/Zhengwei/RealWonder/sam2/checkpoints/sam2.1_hiera_tiny.pt submodules/sam2/checkpoints/sam2.1_hiera_tiny.pt
-ln -sf /cache/Zhengwei/RealWonder/sam2/checkpoints/sam2.1_hiera_small.pt submodules/sam2/checkpoints/sam2.1_hiera_small.pt
-ln -sf /cache/Zhengwei/RealWonder/sam2/checkpoints/sam2.1_hiera_base_plus.pt submodules/sam2/checkpoints/sam2.1_hiera_base_plus.pt
-ln -sf /cache/Zhengwei/RealWonder/sam2/checkpoints/sam2.1_hiera_large.pt submodules/sam2/checkpoints/sam2.1_hiera_large.pt
-```
-
-## 4. Check The Existing `realwonder` Environment Before Reinstalling
-
-Do not recreate the environment first. Repair it only where needed.
-
-Activate:
-
-```bash
-conda activate realwonder
-```
-
-Run the repo check script:
-
-```bash
-bash scripts/check_realwonder_env.sh
-```
-
-Minimum expected state:
-
-- Python `3.11.x`
-- `torch==2.5.1+cu121`
-- `torchvision==0.20.1+cu121`
-- `torchaudio==2.5.1+cu121`
-- `torch.cuda.is_available() == True`
-
-If the environment is not close to that state, repair it before installing project packages:
+### 4.3 Install Torch First
 
 ```bash
 python -m pip install --force-reinstall \
@@ -225,189 +152,208 @@ python -m pip install --force-reinstall \
   --extra-index-url https://pypi.ngc.nvidia.com
 ```
 
-## 5. A100-Specific Build Settings
+Validate:
+
+```bash
+python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
+```
+
+Expected:
+
+- `2.5.1+cu121`
+- CUDA available
+
+## 5. A100 Build Settings
 
 For A100:
 
-- GPU architecture: `sm_80`
-- recommended `TORCH_CUDA_ARCH_LIST=8.0`
-
-Recommended build settings:
+- architecture: `sm_80`
+- recommended:
 
 ```bash
 export TORCH_CUDA_ARCH_LIST="8.0"
-export MAX_JOBS=4
-export NINJA_NUM_JOBS=4
-export CMAKE_BUILD_PARALLEL_LEVEL=4
+export MAX_JOBS=1
+export NINJA_NUM_JOBS=1
+export CMAKE_BUILD_PARALLEL_LEVEL=1
 ```
 
-If the server still shows high memory pressure during compile, reduce all three values from `4` to `2` or `1`.
+Use `1` first. Increase only after the environment is stable.
 
-## 6. Install Order On The Server
+## 6. Optional: Prefer System CUDA For Extension Builds
 
-The order below is intentionally different from a naive `README` run. It is based on actual failure cases observed during setup:
+If custom CUDA builds fail with:
 
-- editable backend missing: `hatchling`, `hatch-requirements-txt`, `editables`
-- `.[p3d]` can appear to finish while `pytorch3d` and `flash-attn` are still missing
-- local CUDA extension builds can saturate CPU and memory
+- `fatbinary died due to signal 11`
+- `nvcc` from the conda environment misbehaving
 
-### 6.1 Install build helpers first
+prefer the system CUDA toolchain for that install attempt:
 
 ```bash
-conda activate realwonder
-export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
-python -m pip install -U pip setuptools wheel ninja packaging
-python -m pip install hatchling hatch-requirements-txt editables
+export CUDA_HOME=/usr/local/cuda
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+unset CUDACXX
+unset CUDAHOSTCXX
+
+which nvcc
+which fatbinary
+nvcc --version
 ```
 
-### 6.2 Install SAM 3D Objects
+Expected:
+
+- `which nvcc` -> `/usr/local/cuda/bin/nvcc`
+- `which fatbinary` -> `/usr/local/cuda/bin/fatbinary`
+
+Do not enable this blindly for every package; use it when conda CUDA tools fail.
+
+## 7. Install Order
+
+Use this order. Do not jump around.
+
+### 7.1 SAM 3D Objects Base
 
 ```bash
-cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
-conda activate realwonder
-export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
-export TORCH_CUDA_ARCH_LIST="8.0"
-export MAX_JOBS=4
-export NINJA_NUM_JOBS=4
-export CMAKE_BUILD_PARALLEL_LEVEL=4
-```
-
-Install `dev` first:
-
-```bash
+cd $RW_ROOT/submodules/sam_3d_objects
+conda activate $RW_ENV_PREFIX
 python -m pip install -v --no-build-isolation -e '.[dev]'
 ```
 
-Install the two `p3d` dependencies explicitly instead of trusting a single editable extra:
+### 7.2 Flash Attention
+
+Preferred: use a wheel, do not compile from source if you already have the matching wheel.
+
+If the wheel is already in cache:
 
 ```bash
-python -m pip install -v --no-build-isolation flash_attn==2.8.3
+python -m pip install $RW_CACHE/wheels/flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl
+```
+
+If you need to download it manually first, place it under:
+
+- `$RW_CACHE/wheels/`
+
+Fallback direct URL:
+
+```bash
+python -m pip install \
+  "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.5cxx11abiFALSE-cp311-cp311-linux_x86_64.whl"
+```
+
+### 7.3 PyTorch3D
+
+There is no stable direct wheel path in this setup. Use the tested Git commit.
+
+Default install attempt:
+
+```bash
+cd $RW_ROOT/submodules/sam_3d_objects
+conda activate $RW_ENV_PREFIX
 python -m pip install -v --no-build-isolation \
   "pytorch3d @ git+https://github.com/facebookresearch/pytorch3d.git@75ebeeaea0908c5527e7b1e305fbc7681382db47"
 ```
 
-Then install `inference`:
+If it fails with `fatbinary died due to signal 11`, retry the same command after enabling system CUDA as described in Section 6.
+
+### 7.4 SAM 3D Objects Inference Extras
+
+Do not trust a single `-e '.[inference]'` on the first try. Install the Git dependencies explicitly first.
+
+#### 7.4.1 Install MoGe
 
 ```bash
-export PIP_FIND_LINKS="https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu121.html"
-python -m pip install -v --no-build-isolation -e '.[inference]'
+mkdir -p $RW_CACHE/src
+cd $RW_CACHE/src
+git clone https://github.com/microsoft/MoGe.git MoGe
+cd MoGe
+git checkout a8c37341bc0325ca99b9d57981cc3bb2bd3e255b
+
+conda activate $RW_ENV_PREFIX
+python -m pip install -v --no-build-isolation .
 ```
 
-Patch hydra:
+If GitHub is unstable, keep the current-terminal Git overrides from Section 2 enabled.
+
+#### 7.4.2 Install gsplat
+
+Clone recursively because `glm` is required:
 
 ```bash
+cd $RW_CACHE/src
+git clone --recursive https://github.com/nerfstudio-project/gsplat.git gsplat
+cd gsplat
+git checkout 2323de5905d5e90e035f792fe65bad0fedd413e7
+git submodule update --init --recursive
+```
+
+Install:
+
+```bash
+conda activate $RW_ENV_PREFIX
+python -m pip install -v --no-build-isolation .
+```
+
+If it fails with `glm/...: No such file or directory`, the clone was not recursive enough. Re-run:
+
+```bash
+git submodule update --init --recursive
+```
+
+If it fails with `fatbinary died due to signal 11`, retry after enabling system CUDA from Section 6.
+
+#### 7.4.3 Install remaining inference extras
+
+```bash
+cd $RW_ROOT/submodules/sam_3d_objects
+conda activate $RW_ENV_PREFIX
+python -m pip install -v --no-build-isolation kaolin==0.17.0 seaborn==0.13.2 gradio==5.49.0
+python -m pip install -v --no-build-isolation -e '.[inference]' --no-deps
+```
+
+### 7.5 Patch Hydra
+
+```bash
+cd $RW_ROOT/submodules/sam_3d_objects
 ./patching/hydra
 ```
 
-Validate Step 2:
+### 7.6 Install SAM2
 
 ```bash
-python -m pip show sam3d_objects flash_attn pytorch3d kaolin gsplat
-LIDRA_SKIP_INIT=1 python -c "import sam3d_objects; import flash_attn; import pytorch3d; import kaolin; import gsplat; print('step2 ok')"
-```
-
-Notes:
-
-- `sam3d_objects` currently imports `sam3d_objects.init` in `__init__.py`, but that file is absent in this snapshot. Use `LIDRA_SKIP_INIT=1` for lightweight validation.
-- You may still see a `timm` conflict with `open_clip_torch`. Keep it noted and validate runtime later.
-
-### 6.3 Download SAM 3D Objects checkpoints into cache
-
-Install HF CLI if missing:
-
-```bash
-python -m pip install 'huggingface-hub[cli]<1.0'
-```
-
-Preferred:
-
-```bash
-cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
-HF_TOKEN="<your-personal-hf-token>" \
-HUGGINGFACE_TOKEN="$HF_TOKEN" \
-HF_ENDPOINT="https://hf-mirror.com" \
-hf auth whoami
-```
-
-If `whoami` succeeds and your personal account can access `facebook/sam-3d-objects`, download with the same per-command override:
-
-```bash
-cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
-HF_TOKEN="<your-personal-hf-token>" \
-HUGGINGFACE_TOKEN="$HF_TOKEN" \
-HF_ENDPOINT="https://hf-mirror.com" \
-hf download \
-  --repo-type model \
-  --local-dir /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/hf-download \
-  --max-workers 1 \
-  facebook/sam-3d-objects
-
-mv /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/hf-download/checkpoints/* \
-   /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/
-rm -rf /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/hf-download
-```
-
-Fallback if HF is slow:
-
-- download on a machine with better network, then `rsync` to `/cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/`
-- or download from browser and upload manually
-
-If mirror download returns `403` for this gated repo even though your token can access the model, retry the same command against the official endpoint without changing global environment variables:
-
-```bash
-cd ~/workspace/Zhengwei/RealWonder/submodules/sam_3d_objects
-HF_TOKEN="<your-personal-hf-token>" \
-HUGGINGFACE_TOKEN="$HF_TOKEN" \
-HF_ENDPOINT="https://huggingface.co" \
-hf download \
-  --repo-type model \
-  --local-dir /cache/Zhengwei/RealWonder/sam3d_objects/checkpoints/hf-download \
-  --max-workers 1 \
-  facebook/sam-3d-objects
-```
-
-### 6.4 Install SAM2
-
-```bash
-cd ~/workspace/Zhengwei/RealWonder/submodules/sam2
-conda activate realwonder
-export TORCH_CUDA_ARCH_LIST="8.0"
-export MAX_JOBS=4
-export NINJA_NUM_JOBS=4
-export CMAKE_BUILD_PARALLEL_LEVEL=4
+cd $RW_ROOT/submodules/sam2
+conda activate $RW_ENV_PREFIX
 python -m pip install -v --no-build-isolation -e .
 ```
 
-The package allows CUDA extension build errors and may still install successfully. Confirm first:
+Validate:
 
 ```bash
 python -m pip show SAM-2
 python -c "import sam2; print('sam2 ok')"
 ```
 
-Download checkpoints into cache instead of the workspace:
+### 7.7 Download SAM2 Checkpoints
+
+Store them in cache:
 
 ```bash
-cd /cache/Zhengwei/RealWonder/sam2/checkpoints
+cd $RW_CACHE/sam2/checkpoints
 wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt
 wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt
 wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_base_plus.pt
 wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt
 ```
 
-If `wget` is too slow, fallback options are:
+Fallbacks:
 
-- use a `githubfast`-style transfer node if you have one
-- download locally and `rsync`
-- use `scp` from a machine with better bandwidth
+- download elsewhere and `rsync` into `$RW_CACHE/sam2/checkpoints`
+- use `scp`
 
-### 6.5 Install Genesis
+### 7.8 Install Genesis
 
 ```bash
-cd ~/workspace/Zhengwei/RealWonder/submodules/Genesis
-conda activate realwonder
+cd $RW_ROOT/submodules/Genesis
+conda activate $RW_ENV_PREFIX
 git checkout 3aa206cd84729bc7cc14fb4007aeb95a0bead7aa
 git submodule update --init --recursive
 python -m pip install -v --no-build-isolation -e .
@@ -420,21 +366,28 @@ python -m pip show genesis-world
 python -c "import genesis as gs; print(gs.__version__)"
 ```
 
-### 6.6 Install root requirements
+### 7.9 Install Root Requirements
 
 ```bash
-cd ~/workspace/Zhengwei/RealWonder
-conda activate realwonder
-export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
+cd $RW_ROOT
+conda activate $RW_ENV_PREFIX
 python -m pip install -r requirements.txt
 ```
 
-### 6.7 Download RealWonder and Wan checkpoints into cache
+If `nvidia-pyindex` fails, `appdirs` is usually missing. It is already preinstalled in Section 4.2. If needed, rerun:
 
 ```bash
-cd ~/workspace/Zhengwei/RealWonder
-conda activate realwonder
+python -m pip install appdirs
+python -m pip install -r requirements.txt
+```
+
+For very large wheels such as `bpy` or `open3d`, prefer caching them under `$RW_CACHE/wheels` and reinstalling from there if network is too slow.
+
+### 7.10 Download RealWonder And Wan Checkpoints
+
+Install HF CLI if missing:
+
+```bash
 python -m pip install 'huggingface-hub[cli]<1.0'
 ```
 
@@ -447,7 +400,7 @@ HF_ENDPOINT="https://hf-mirror.com" \
 hf download \
   ziyc/realwonder \
   --include "Realwonder-Distilled-AR-I2V-Flow/*" \
-  --local-dir /cache/Zhengwei/RealWonder/ckpts/
+  --local-dir $RW_CACHE/ckpts/
 ```
 
 Wan checkpoint:
@@ -458,23 +411,22 @@ HUGGINGFACE_TOKEN="$HF_TOKEN" \
 HF_ENDPOINT="https://hf-mirror.com" \
 hf download \
   alibaba-pai/Wan2.1-Fun-V1.1-1.3B-InP \
-  --local-dir /cache/Zhengwei/RealWonder/wan_models/Wan2.1-Fun-V1.1-1.3B-InP
+  --local-dir $RW_CACHE/wan_models/Wan2.1-Fun-V1.1-1.3B-InP
 ```
 
-If HF download is too slow:
+For `facebook/sam-3d-objects`, first verify the token can access the gated repo. If `hf-mirror.com` still returns `403`, retry the same command against `https://huggingface.co` for that command only.
 
-- download locally and `rsync` to the same cache path
-- avoid storing these models under the git workspace
+## 8. Validation
 
-## 7. Final Validation
-
-Run these checks from `~/workspace/Zhengwei/RealWonder`:
+Run these checks:
 
 ```bash
-conda activate realwonder
+cd $RW_ROOT
+conda activate $RW_ENV_PREFIX
 
 python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
 LIDRA_SKIP_INIT=1 python -c "import sam3d_objects; import pytorch3d; import flash_attn; import kaolin; import gsplat; print('sam3d stack ok')"
+python -c "import moge; print('moge ok')"
 python -c "import sam2; print('sam2 ok')"
 python -c "import genesis as gs; print(gs.__version__)"
 python -c "import diffusers, open_clip, kornia; print('root deps ok')"
@@ -483,86 +435,136 @@ python -c "import diffusers, open_clip, kornia; print('root deps ok')"
 Optional demo dependencies:
 
 ```bash
-export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 python -m pip install -r demo_web/requirements.txt
 ```
 
-## 8. Known Issues And Repairs
+## 9. Known Failure Modes And Exact Repairs
 
-### 8.1 `Cannot import 'hatchling.build'`
-
-Install:
+### 9.1 `hatchling.build` missing
 
 ```bash
 python -m pip install hatchling hatch-requirements-txt
 ```
 
-### 8.2 `No module named 'editables'`
-
-Install:
+### 9.2 `editables` missing
 
 ```bash
 python -m pip install editables
 ```
 
-### 8.3 `pip install -e '.[p3d]'` completes but `pytorch3d` and `flash-attn` are still missing
+### 9.3 `nvidia-pyindex` wheel build fails
 
-Do not trust the single command. Install these two explicitly:
+Typical cause:
 
-```bash
-python -m pip install -v --no-build-isolation flash_attn==2.8.3
-python -m pip install -v --no-build-isolation \
-  "pytorch3d @ git+https://github.com/facebookresearch/pytorch3d.git@75ebeeaea0908c5527e7b1e305fbc7681382db47"
-```
+- `ModuleNotFoundError: No module named 'appdirs'`
 
-### 8.4 Build saturates server CPU or RAM
-
-Reduce:
+Repair:
 
 ```bash
-export MAX_JOBS=1
-export NINJA_NUM_JOBS=1
-export CMAKE_BUILD_PARALLEL_LEVEL=1
+python -m pip install appdirs
 ```
 
-### 8.5 `open-clip-torch` requires `timm>=1.0.17`, but `sam3d_objects` installs `timm==0.9.16`
+### 9.4 `pip install -e '.[p3d]'` finishes but `flash_attn` / `pytorch3d` are missing
 
-This conflict was observed during setup. Keep it recorded and validate runtime paths that use `open_clip_torch`. Do not blindly upgrade `timm` without retesting `sam3d_objects`.
+Do not trust the umbrella extra. Install them explicitly as in Sections 7.2 and 7.3.
 
-### 8.6 `sam3d_objects.init` missing
+### 9.5 Git clone fails with HTTP/2 errors
 
-The current code snapshot imports `sam3d_objects.init` from `sam3d_objects/__init__.py`, but the file is absent. For environment validation:
+Use current-terminal Git overrides:
+
+```bash
+export GIT_CONFIG_COUNT=2
+export GIT_CONFIG_KEY_0=url.https://githubfast.com/.insteadOf
+export GIT_CONFIG_VALUE_0=https://github.com/
+export GIT_CONFIG_KEY_1=http.version
+export GIT_CONFIG_VALUE_1=HTTP/1.1
+```
+
+### 9.6 `glm/...: No such file or directory` while building `gsplat`
+
+The repo was cloned without recursive submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+### 9.7 `fatbinary died due to signal 11`
+
+This indicates a broken or unstable CUDA toolchain in the current environment. Retry the build with system CUDA from Section 6.
+
+### 9.8 `sam3d_objects.init` missing
+
+This repo snapshot imports `sam3d_objects.init` from `sam3d_objects/__init__.py`, but that file does not exist. Use this for validation:
 
 ```bash
 LIDRA_SKIP_INIT=1 python -c "import sam3d_objects; print('ok')"
 ```
 
-If full runtime later requires that module, patch the package or pin a corrected upstream snapshot.
+### 9.9 `open-clip-torch` requires `timm>=1.0.17`, but `sam3d_objects` installs `timm==0.9.16`
 
-### 8.7 Gated Hugging Face repo returns `403` from `hf-mirror.com`
+Record the conflict and validate runtime before changing `timm`. Do not blindly upgrade it during base setup.
 
-First verify that the personal token in the current terminal can really access the gated model:
+## 10. Rollback And Cleanup
 
-```bash
-HF_TOKEN="<your-personal-hf-token>" \
-HUGGINGFACE_TOKEN="$HF_TOKEN" \
-HF_ENDPOINT="https://hf-mirror.com" \
-python - <<'PY'
-from huggingface_hub import HfApi
-api = HfApi()
-print(api.whoami())
-print(api.model_info("facebook/sam-3d-objects").id)
-PY
-```
-
-If model metadata is accessible but `hf download` still returns `403`, retry the exact download with the official endpoint for that command only:
+### 10.1 Remove the cache-based conda environment completely
 
 ```bash
-HF_TOKEN="<your-personal-hf-token>" \
-HUGGINGFACE_TOKEN="$HF_TOKEN" \
-HF_ENDPOINT="https://huggingface.co" \
-hf download --repo-type model facebook/sam-3d-objects
+conda deactivate
+rm -rf $RW_ENV_PREFIX
 ```
 
-Do not rewrite global server environment variables just to switch endpoints. Keep the override local to the active terminal or to a single command line.
+### 10.2 Purge shared caches for this project
+
+```bash
+rm -rf $RW_CACHE/torch_extensions
+rm -rf $RW_CACHE/triton
+rm -rf $RW_CACHE/warp
+rm -rf $RW_CACHE/tmp
+rm -rf $RW_CACHE/src/*
+```
+
+Use with care:
+
+```bash
+rm -rf $RW_CACHE/wheels/*
+rm -rf $RW_CACHE/hf
+rm -rf $RW_CACHE/torch
+```
+
+### 10.3 Clean pip and conda package caches
+
+```bash
+python -m pip cache purge
+conda clean --all -y
+```
+
+## 11. Disk Quota And Workspace Pressure
+
+If you see:
+
+- `Disk quota exceeded`
+- `project block limit reached`
+
+do not keep installing. Diagnose space first:
+
+```bash
+cd $RW_ROOT
+du -sh .
+du -sh .git
+du -sh .git/modules/submodules/* 2>/dev/null
+df -h $RW_ROOT $RW_CACHE
+```
+
+Known large offenders:
+
+- `.git/modules/submodules/Genesis`
+- workspace-local result directories
+- accidental wheels or source clones under `~/workspace`
+
+Prefer:
+
+- source clones under `$RW_CACHE/src`
+- wheels under `$RW_CACHE/wheels`
+- conda environment under `$RW_ENV_PREFIX`
+
+Never rebuild the environment under `/home/ma-user/miniconda3/envs/realwonder` for this project if workspace pressure is already an issue.
