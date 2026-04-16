@@ -2,8 +2,6 @@
 
 This document summarizes the practical rules that apply to most projects deployed on a shared GPU server.
 
-It is distilled from the RealWonder A100 deployment experience, but the rules are intentionally general.
-
 Use it when you want a deployment pattern that is:
 
 - reproducible
@@ -23,10 +21,10 @@ Recommended split:
 Typical layout:
 
 ```bash
-~/workspace/<project>
-/cache/<user>/<project>
+~/workspace/Zhengwei/<project>
+/cache/Zhengwei/<project>
 ```
-
+<user> is always Zhengwei in this case, but you can replace it with your own username if needed.
 Inside cache, create explicit directories:
 
 ```bash
@@ -51,7 +49,7 @@ Do not default to:
 Prefer a prefix environment in cache:
 
 ```bash
-conda create -y -p /cache/<user>/<project>/conda_envs/<env_name> python=3.11
+conda create -y -p /cache/<user>/<project>/conda_envs/<env_name> python=3.*
 conda activate /cache/<user>/<project>/conda_envs/<env_name>
 ```
 
@@ -137,9 +135,6 @@ Safer pattern:
 
 This is especially important for:
 
-- `flash_attn`
-- `pytorch3d`
-- `gsplat`
 - GitHub-based dependencies
 
 ## 6. Cache Large Wheels And Source Checkouts
@@ -175,6 +170,7 @@ Why:
 - network failures are harder to recover from
 - persistent source trees are easier to retry and inspect
 
+# optional treatment of CUDA builds as special cases, since they are often the most fragile part of the process, but you should apply this only when normal installation attempts fail with CUDA-related errors
 ## 7. Treat CUDA Extension Builds As Special Cases
 
 For packages with custom CUDA/C++ builds:
