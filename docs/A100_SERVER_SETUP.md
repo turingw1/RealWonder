@@ -52,7 +52,6 @@ export TRITON_CACHE_DIR=$RW_CACHE/triton
 export WARP_CACHE_DIR=$RW_CACHE/warp
 export XDG_CACHE_HOME=$RW_CACHE/tmp
 
-export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 export PIP_EXTRA_INDEX_URL="https://pypi.ngc.nvidia.com https://download.pytorch.org/whl/cu121"
 export PIP_FIND_LINKS="https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.5.1_cu121.html"
 ```
@@ -162,22 +161,6 @@ Expected:
 
 - `2.5.1+cu121`
 - CUDA available
-
-## 5. A100 Build Settings
-
-For A100:
-
-- architecture: `sm_80`
-- recommended:
-
-```bash
-export TORCH_CUDA_ARCH_LIST="8.0"
-export MAX_JOBS=1
-export NINJA_NUM_JOBS=1
-export CMAKE_BUILD_PARALLEL_LEVEL=1
-```
-
-Use `1` first. Increase only after the environment is stable.
 
 ## 6. Optional: Prefer System CUDA For Extension Builds
 
@@ -416,8 +399,6 @@ python -m pip install 'huggingface-hub[cli]<1.0'
 RealWonder checkpoint:
 
 ```bash
-HF_TOKEN="<your-personal-hf-token>" \
-HUGGINGFACE_TOKEN="$HF_TOKEN" \
 HF_ENDPOINT="https://hf-mirror.com" \
 hf download \
   ziyc/realwonder \
@@ -428,8 +409,6 @@ hf download \
 Wan checkpoint:
 
 ```bash
-HF_TOKEN="<your-personal-hf-token>" \
-HUGGINGFACE_TOKEN="$HF_TOKEN" \
 HF_ENDPOINT="https://hf-mirror.com" \
 hf download \
   alibaba-pai/Wan2.1-Fun-V1.1-1.3B-InP \
