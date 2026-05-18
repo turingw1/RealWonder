@@ -18,6 +18,8 @@ mesh_resize_factor: 0.7
 
 original_geometry_downsample: true
 target_faces: 1000
+fov_x_input: 45.31472396850586
+moge_model_path: "/root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt"
 
 fixed_area:
 - [0, 1, 0, 0.1]

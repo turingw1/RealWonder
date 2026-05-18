@@ -896,6 +896,7 @@ def get_noise_from_video(
     remove_background=False,
     visualize_flow_sensitivity=None,
     warp_kwargs=dict(),
+    raft_version="large",
 ):
 
     #Input assertions
@@ -910,7 +911,9 @@ def get_noise_from_video(
         else:
             device = rp.select_torch_device(prefer_used=True)
     
-    raft_model = raft.RaftOpticalFlow(device, "large")
+    raft_model = None
+    if not input_flow:
+        raft_model = raft.RaftOpticalFlow(device, raft_version)
 
     assert rp.is_numpy_array(video_path) or isinstance(video_path, str), type(video_path)
     
@@ -1015,12 +1018,19 @@ def get_noise_from_video(
 
         if "ffmpeg" in rp.get_system_commands():
             noise_mp4_path = rp.path_join(output_folder, "noise_video.mp4")
-            rp.save_video_mp4(
-                (numpy_noises / 4 + 0.5)[:,:,:,:3],
-                noise_mp4_path,
-                video_bitrate="max",
-                framerate=30,
-            )
+            try:
+                rp.save_video_mp4(
+                    (numpy_noises / 4 + 0.5)[:,:,:,:3],
+                    noise_mp4_path,
+                    video_bitrate="max",
+                    framerate=30,
+                )
+            except Exception as exc:
+                rp.fansi_print(
+                    f"Could not save optional noise_video.mp4 preview: {exc}. "
+                    "Continuing to save flows.npy and noises.npy.",
+                    "yellow",
+                )
         else:
             rp.fansi_print("Please install ffmpeg! We won't save an MP4 this time - please try again.")
 

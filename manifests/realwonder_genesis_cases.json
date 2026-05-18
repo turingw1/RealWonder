@@ -1,0 +1,98 @@
+{
+  "schema": "realwonder_genesis_cases.v1",
+  "root": "/root/autodl-tmp/Physics_worldmodel/RealWonder",
+  "generated_with": "scripts/run_realwonder_genesis_demo.sh",
+  "noise_flow_source": "none",
+  "genesis_backend": "gpu",
+  "notes": [
+    "All entries were produced through the RealWonder case_simulation.py pipeline: case image/config -> SAM2 -> SAM3D/MoGe -> Genesis simulation.",
+    "noise_flow_source=none means diffusion/noise-warp export was skipped; Genesis optical flow tensors are still exported.",
+    "sand_house and two_duck use RealWonder demo_web fallback fov_x_input=60.0, not case-specific calibrated fov."
+  ],
+  "cases": [
+    {
+      "case": "lamp",
+      "config": "cases/lamp/config.yaml",
+      "final_sim": "result/lamp/09-05_00-55-11/final_sim",
+      "simulation_video": "result/lamp/09-05_00-55-11/final_sim/simulation.mp4",
+      "frames": 81,
+      "frame_size": [832, 480],
+      "raw_frames_512": 81,
+      "genesis_flows_512_shape": [80, 2, 512, 512],
+      "genesis_flows_480x832_shape": [80, 2, 480, 832],
+      "fov_x_input": 27.449039459228516,
+      "fov_source": "demo_web/demo_data/lamp/config.yaml"
+    },
+    {
+      "case": "tree",
+      "config": "cases/tree/config.yaml",
+      "final_sim": "result/tree/09-05_01-04-56/final_sim",
+      "simulation_video": "result/tree/09-05_01-04-56/final_sim/simulation.mp4",
+      "frames": 81,
+      "frame_size": [832, 480],
+      "raw_frames_512": 81,
+      "genesis_flows_512_shape": [80, 2, 512, 512],
+      "genesis_flows_480x832_shape": [80, 2, 480, 832],
+      "fov_x_input": 88.33694458007812,
+      "fov_source": "demo_web/demo_data/tree/config.yaml"
+    },
+    {
+      "case": "santa_cloth",
+      "config": "cases/santa_cloth/config.yaml",
+      "final_sim": "result/santa_cloth/09-05_01-08-18/final_sim",
+      "simulation_video": "result/santa_cloth/09-05_01-08-18/final_sim/simulation.mp4",
+      "frames": 81,
+      "frame_size": [832, 480],
+      "raw_frames_512": 81,
+      "genesis_flows_512_shape": [80, 2, 512, 512],
+      "genesis_flows_480x832_shape": [80, 2, 480, 832],
+      "fov_x_input": 45.31472396850586,
+      "fov_source": "demo_web/demo_data/santa_cloth/config.yaml"
+    },
+    {
+      "case": "persimmon",
+      "config": "cases/persimmon/config.yaml",
+      "final_sim": "result/persimmon/09-05_01-10-15/final_sim",
+      "simulation_video": "result/persimmon/09-05_01-10-15/final_sim/simulation.mp4",
+      "frames": 81,
+      "frame_size": [832, 480],
+      "raw_frames_512": 81,
+      "genesis_flows_512_shape": [80, 2, 512, 512],
+      "genesis_flows_480x832_shape": [80, 2, 480, 832],
+      "fov_x_input": 31.97744369506836,
+      "fov_source": "demo_web/demo_data/persimmon/config.yaml"
+    },
+    {
+      "case": "two_duck",
+      "config": "cases/two_duck/config.yaml",
+      "final_sim": "result/two_duck/09-05_01-14-00/final_sim",
+      "simulation_video": "result/two_duck/09-05_01-14-00/final_sim/simulation.mp4",
+      "frames": 81,
+      "frame_size": [832, 480],
+      "raw_frames_512": 81,
+      "genesis_flows_512_shape": [80, 2, 512, 512],
+      "genesis_flows_480x832_shape": [80, 2, 480, 832],
+      "fov_x_input": 60.0,
+      "fov_source": "demo_web/simulation_engine.py fallback",
+      "warnings": [
+        "PyTorch3D coarse rasterization bin warning appeared during reconstruction/rendering."
+      ]
+    },
+    {
+      "case": "sand_house",
+      "config": "cases/sand_house/config.yaml",
+      "final_sim": "result/sand_house/09-05_01-18-45/final_sim",
+      "simulation_video": "result/sand_house/09-05_01-18-45/final_sim/simulation.mp4",
+      "frames": 165,
+      "frame_size": [832, 480],
+      "raw_frames_512": 165,
+      "genesis_flows_512_shape": [164, 2, 512, 512],
+      "genesis_flows_480x832_shape": [164, 2, 480, 832],
+      "fov_x_input": 60.0,
+      "fov_source": "demo_web/simulation_engine.py fallback",
+      "warnings": [
+        "Genesis warned that substep_dt=0.001 is greater than suggested_dt=0.0003125 for grid density."
+      ]
+    }
+  ]
+}

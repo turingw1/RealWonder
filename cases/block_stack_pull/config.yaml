@@ -1,0 +1,72 @@
+device: "cuda"
+seed: 7
+example_name: "block_stack_pull"
+output_folder: "result/block_stack_pull"
+data_path: "cases/block_stack_pull/"
+
+segmenter: "sam2"
+all_object_points:
+  - [[268, 174, 1], [250, 174, 1], [286, 174, 1], [268, 236, 0], [268, 300, 0], [268, 368, 0], [174, 246, 0], [365, 245, 0], [260, 445, 0], [260, 118, 0]]
+  - [[268, 236, 1], [250, 236, 1], [286, 236, 1], [268, 174, 0], [268, 300, 0], [268, 368, 0], [174, 246, 0], [365, 245, 0], [260, 445, 0], [260, 118, 0]]
+  - [[268, 300, 1], [250, 300, 1], [286, 300, 1], [268, 174, 0], [268, 236, 0], [268, 368, 0], [174, 246, 0], [365, 245, 0], [260, 445, 0], [260, 118, 0]]
+  - [[268, 368, 1], [250, 368, 1], [286, 368, 1], [268, 174, 0], [268, 236, 0], [268, 300, 0], [174, 246, 0], [365, 245, 0], [260, 445, 0], [260, 118, 0]]
+all_object_masks_idx: [0, 0, 0, 0]
+
+obj_kp_matching: false
+logging_level: "details"
+debug: false
+stitched_inpainting: false
+
+mesh_resize_factor: 1.0
+target_faces: 5000
+original_geometry_downsample: true
+use_rgb_frontside: true
+fov_x_input: 42.0
+moge_model_path: "/root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt"
+
+genesis_backend: "gpu"
+dt: 0.005
+substeps: 20
+simulated_frames_num: 81
+frame_steps: 3
+material_type: ["rigid", "rigid", "rigid", "rigid"]
+use_primitive: true
+
+rigid_rho: 650.0
+rigid_friction: 0.62
+plane_friction: 0.78
+plane_rho: 1000.0
+gravity: -9.8
+
+pull_object_index: 2
+pull_direction_gs: [1.0, 0.0, 0.0]
+pull_start_step: 30
+pull_steps: 115
+pull_hold_steps: 12
+pull_distance_scale: 1.75
+pull_min_distance: 0.18
+hold_target_quat: true
+
+alpha_threshold: 0.70
+crop_start: 176
+fg_points_render_radius: 0.012
+clip_frontside_points_to_segmentation_mask: true
+frontside_segmentation_erode_px: 0
+fill_occluded_submesh_with_mask_median_color: true
+occluded_color_mask_erode_px: 1
+include_occluded_submesh_points: true
+
+num_output_frames: 21
+denoising_step_list: [800, 500, 250]
+mask_dropin_step: -1
+vgen_prompt: "A realistic stack of four equal wooden toy blocks on a tabletop. The second block from the bottom is pulled sideways, and the upper blocks respond naturally under gravity and friction."
+
+
+# Stabilization offsets in Genesis coordinates, computed from the SAM3D centers.
+# They keep the four reconstructed block bodies aligned as a stack with a small
+# vertical clearance before Genesis contact solving begins.
+object_offsets_gs:
+  - [0.0077, 0.0189, 0.0545]
+  - [0.0030, -0.0027, 0.0330]
+  - [-0.0086, 0.0000, 0.0315]
+  - [-0.0022, -0.0162, 0.0000]

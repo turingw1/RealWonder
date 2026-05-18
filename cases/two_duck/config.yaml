@@ -12,7 +12,7 @@ obj_kp_matching: true
 stitched_inpainting: false
 
 logging_level: "details"
-debug: true
+debug: false
 
 mesh_resize_factor: 1.0
 

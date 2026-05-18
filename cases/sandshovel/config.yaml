@@ -1,0 +1,85 @@
+device: "cuda"
+seed: 0
+example_name: "sand_shovel"
+output_folder: "result/sandshovel"
+data_path: "cases/sandshovel/"
+
+segmenter: "sam2"
+
+# The input image is a low-angle view of a sand surface with a plain gray
+# background. Points are in the 512x512 SAM working image coordinates: label 1
+# selects the lower sand field, label 0 rejects the wall/background.
+all_object_points:
+  - [[256, 405, 1], [128, 430, 1], [384, 430, 1], [256, 330, 1], [256, 145, 0], [96, 180, 0], [416, 180, 0]]
+all_object_masks_idx: [0]
+
+obj_kp_matching: true
+obj_kp: [[[0.20, 0.78], [0.50, 0.72], [0.80, 0.78]]]
+
+logging_level: "details"
+debug: false
+stitched_inpainting: false
+
+mesh_resize_factor: 1.0
+remap_depth: [1.0, 2.0]
+
+target_faces: 10000
+fov_x_input: 55.0
+moge_model_path: "/root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt"
+
+dt: 0.01
+substeps: 10
+simulated_frames_num: 140
+frame_steps: 2
+material_type: ["mpm_sand"]
+
+# MPM sand material. These start from sand_house but use a less extreme
+# friction angle so the pile can be scooped and poured instead of behaving like
+# a nearly locked block.
+MPM_rho: 1000
+MPM_nu: 0.3
+MPM_E: 1e5
+MPM_friction_angle: 50
+MPM_grid_density: 64
+particle_size: 0.008
+closest_points_num: 5
+
+plane_coup_friction: 1.0
+plane_friction: 5.0
+
+crop_start: 250
+alpha_threshold: 0.99
+fg_points_render_radius: 0.01
+original_geometry_downsample: false
+
+# Parameters for the sand_shovel case handler. The handler adds one Genesis
+# Tool entity as a kinematically controlled shovel/end-effector proxy. The
+# Tool participates in MPM coupling, so it can push/scrape the sand particles;
+# the short handle is added to RealWonder's mesh render channel for visibility.
+shovel_blade_size: [0.34, 0.11, 0.035]
+shovel_blade_color: [0.55, 0.58, 0.60, 1.0]
+shovel_friction: 8.0
+shovel_coup_softness: 0.012
+shovel_sdf_res: 128
+shovel_start_offset: [0.0, -0.42, 0.18]
+shovel_under_sand_offset: [0.0, -0.22, 0.018]
+shovel_scoop_offset: [0.0, 0.12, 0.035]
+shovel_lift_offset: [0.0, 0.18, 0.24]
+shovel_dump_offset: [0.12, 0.22, 0.30]
+shovel_start_pitch_deg: 10
+shovel_dig_pitch_deg: -12
+shovel_lift_pitch_deg: 8
+shovel_dump_pitch_deg: -42
+shovel_phase_frames:
+  approach: 8
+  dig_under: 12
+  scoop_forward: 18
+  lift: 12
+  dump: 8
+  settle: 12
+
+## VGen parameters
+num_output_frames: 42
+denoising_step_list: [500, 250, 100]
+mask_dropin_step: 2
+vgen_prompt: "A realistic robotic arm with a small metal shovel enters from the lower foreground, slides the blade underneath a fine dry sand surface, scoops up a mound of sand, lifts it, then tilts the shovel forward and pours the grains back down. The sand moves with granular detail, small avalanches, dust-like fine particles, and physically plausible settling. Low camera angle, static camera, soft studio lighting, realistic shadows."

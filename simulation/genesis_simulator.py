@@ -20,6 +20,41 @@ import time
 from simulation.utils import save_gif_from_image_folder
 
 class DiffSim(nn.Module):
+
+    def _apply_stack_contact_snapping_gs(self):
+        order = self.config.get("stack_order_bottom_to_top", None)
+        if not order:
+            return
+
+        order = [int(idx) for idx in order if int(idx) < len(self.fg_meshes)]
+        if len(order) < 2:
+            return
+
+        clearance = float(self.config.get("stack_contact_clearance_gs", 0.0))
+        source = self.config.get("stack_contact_source", "mesh")
+        deltas = {}
+        for lower_idx, upper_idx in zip(order[:-1], order[1:]):
+            if source == "point_cloud":
+                lower_points = self.fg_pcs[lower_idx]["points"]
+                upper_points = self.fg_pcs[upper_idx]["points"]
+            else:
+                lower_points = self.fg_meshes[lower_idx]["vertices"]
+                upper_points = self.fg_meshes[upper_idx]["vertices"]
+
+            lower_top = lower_points[:, 2].max()
+            upper_bottom = upper_points[:, 2].min()
+            delta_z = lower_top + clearance - upper_bottom
+            delta = torch.zeros(3, device=self.device, dtype=self.fg_meshes[upper_idx]["vertices"].dtype)
+            delta[2] = delta_z
+
+            self.fg_meshes[upper_idx]["vertices"] = self.fg_meshes[upper_idx]["vertices"] + delta
+            self.fg_pcs[upper_idx]["points"] = self.fg_pcs[upper_idx]["points"] + delta
+            self.initial_fg_pcs[upper_idx]["points"] = self.initial_fg_pcs[upper_idx]["points"] + delta
+            deltas[int(upper_idx)] = float(delta_z.detach().cpu().item())
+
+        self.config["computed_stack_contact_deltas_gs"] = deltas
+        print(f"[stack_contact] snapped order {order} with source={source}, clearance={clearance:.6f}, deltas={deltas}")
+
     def __init__(self, config): 
         super().__init__()
         self.config = config
@@ -49,17 +84,44 @@ class DiffSim(nn.Module):
         for idx, per_obj_pc in enumerate(self.fg_pcs_from_3d):
             self.fg_pcs.append({
                 'points': pt3d_to_gs(per_obj_pc['points'].clone()),
-                'colors': pt3d_to_gs(per_obj_pc['colors'].clone()),
+                'colors': per_obj_pc['colors'].clone(),
             })
+        self.initial_fg_pcs = [
+            {
+                'points': per_obj_pc['points'].clone(),
+                'colors': per_obj_pc['colors'].clone(),
+            }
+            for per_obj_pc in self.fg_pcs
+        ]
         
         # pytorch to genesis coordinates
         for idx, per_obj_mesh in enumerate(self.fg_meshes):
             per_obj_mesh['vertices'] = pt3d_to_gs(per_obj_mesh['vertices'])
 
+        object_offsets_gs = self.config.get("object_offsets_gs", None)
+        if object_offsets_gs is not None:
+            for idx, offset in enumerate(object_offsets_gs):
+                if idx >= len(self.fg_pcs):
+                    break
+                offset_t = torch.tensor(offset, device=self.device, dtype=self.fg_pcs[idx]['points'].dtype)
+                self.fg_pcs[idx]['points'] = self.fg_pcs[idx]['points'] + offset_t
+                self.initial_fg_pcs[idx]['points'] = self.initial_fg_pcs[idx]['points'] + offset_t
+                self.fg_meshes[idx]['vertices'] = self.fg_meshes[idx]['vertices'] + offset_t
+
+        self._apply_stack_contact_snapping_gs()
+
+        genesis_backend_name = self.config.get("genesis_backend", "gpu")
+        if genesis_backend_name == "gpu":
+            genesis_backend = gs.gpu
+        elif genesis_backend_name == "cpu":
+            genesis_backend = gs.cpu
+        else:
+            raise ValueError(f"Unsupported genesis_backend: {genesis_backend_name}")
+
         gs.init(
             seed=self.config['seed'],
             precision="32",
-            backend=gs.gpu,
+            backend=genesis_backend,
             logging_level="warning"
         )
 
@@ -125,6 +187,14 @@ class DiffSim(nn.Module):
         else:
             pbd_gravity = None
 
+        if 'sph_gravity' in self.config:
+            if isinstance(self.config['sph_gravity'], (int, float)):
+                sph_gravity = tuple(self.config['sph_gravity'] * np.array(gravity_dir))
+            else:
+                sph_gravity = tuple(pt3d_to_gs(np.array(self.config['sph_gravity'])))
+        else:
+            sph_gravity = None
+
         if 'gravity' in self.config:
             if isinstance(self.config['gravity'], (int, float)):
                 gravity = tuple(self.config['gravity'] * np.array(gravity_dir))
@@ -168,6 +238,13 @@ class DiffSim(nn.Module):
                 particle_size = 0.01 if 'particle_size' not in self.config else self.config['particle_size'],
                 gravity = pbd_gravity,
             ),
+            sph_options = gs.options.SPHOptions(
+                lower_bound = tuple(self.simulation_lower_bound),
+                upper_bound = tuple(self.simulation_upper_bound),
+                particle_size = 0.02 if 'sph_particle_size' not in self.config else self.config['sph_particle_size'],
+                pressure_solver = 'WCSPH' if 'sph_pressure_solver' not in self.config else self.config['sph_pressure_solver'],
+                gravity = sph_gravity,
+            ),
             mpm_options = gs.options.MPMOptions(
                 lower_bound = tuple(self.simulation_lower_bound),
                 upper_bound = tuple(self.simulation_upper_bound),
@@ -178,6 +255,7 @@ class DiffSim(nn.Module):
             coupler_options=gs.options.LegacyCouplerOptions(
                 rigid_pbd=True,
                 rigid_mpm=True,
+                rigid_sph=True,
             )
         )
 
@@ -211,18 +289,14 @@ class DiffSim(nn.Module):
 
         for obj_idx, per_material_type in enumerate(self.material_type):
             if per_material_type == 'rigid':
-                # for debug purpose
-                # per_object_pos = self.objs[obj_idx].get_pos().cpu().numpy()
-                # per_object_quat = self.objs[obj_idx].get_quat().cpu().numpy()
-                # per_object_transform_matrix = torch.from_numpy(pose_to_transform_matrix(per_object_pos, per_object_quat)).to(self.device).float()
-                # self.initial_transform_matrix[obj_idx] = per_object_transform_matrix
-                self.objs[obj_idx].solver.update_vgeoms_render_T()
-                rigid_T = self.objs[obj_idx].solver._vgeoms_render_T
-                rigid_idx = self.objs[obj_idx].idx
-                transform_matrix = torch.tensor(rigid_T[rigid_idx, 0]).to(self.device).float()
+                per_object_pos = self.objs[obj_idx].get_pos().cpu().numpy()
+                per_object_quat = self.objs[obj_idx].get_quat().cpu().numpy()
+                transform_matrix = torch.from_numpy(
+                    pose_to_transform_matrix(per_object_pos, per_object_quat)
+                ).to(self.device).float()
                 self.initial_transform_matrix[obj_idx] = transform_matrix
 
-            elif per_material_type in ['pbd_liquid', 'pbd_cloth', 'mpm_sand', 'mpm_liquid', 'mpm_elastic', 'mpm_snow', 'mpm_elastic2plastic', 'pbd_elastic', 'pbd_particle']:
+            elif per_material_type in ['sph_liquid', 'pbd_liquid', 'pbd_cloth', 'mpm_sand', 'mpm_liquid', 'mpm_elastic', 'mpm_snow', 'mpm_elastic2plastic', 'pbd_elastic', 'pbd_particle']:
                 self.closest_indices[obj_idx] = self.map_pc_to_particles(obj_idx)
             else:
                 raise NotImplementedError("The current material is not supported for now")
@@ -235,6 +309,9 @@ class DiffSim(nn.Module):
             self.cam.start_recording()
         self.case_handler.custom_simulation(sid)
         self.scene.step()
+        after_physics_step = getattr(self.case_handler, 'after_physics_step', None)
+        if after_physics_step is not None:
+            after_physics_step(sid)
         if self.config.get('debug', False):
             render_out = self.cam.render()
         updated_all_obj_points = []
@@ -248,7 +325,8 @@ class DiffSim(nn.Module):
                 # Inverse the initial transform matrix
                 initial_transform_matrix_inv = torch.linalg.inv(self.initial_transform_matrix[obj_idx])
                 real_transform_matrix = transform_matrix @ initial_transform_matrix_inv
-                points_homo = torch.cat([self.fg_pcs[obj_idx]['points'], torch.ones(self.fg_pcs[obj_idx]['points'].shape[0], 1).to(self.device)], dim=1)
+                base_points = self.initial_fg_pcs[obj_idx]['points']
+                points_homo = torch.cat([base_points, torch.ones(base_points.shape[0], 1).to(self.device)], dim=1)
                 updated_points = torch.matmul(real_transform_matrix.unsqueeze(0), points_homo.unsqueeze(-1)).squeeze(-1)[:, :3]
                 updated_points = gs_to_pt3d(updated_points)
                 updated_all_obj_points.append(updated_points)
@@ -263,13 +341,8 @@ class DiffSim(nn.Module):
                 # updated_points = gs_to_pt3d(updated_points)
                 # updated_all_obj_points.append(updated_points)
 
-            elif per_material_type in ['pbd_liquid', 'pbd_cloth', 'mpm_sand', 'mpm_liquid', 'mpm_elastic', 'mpm_snow', 'mpm_elastic2plastic', 'pbd_elastic', 'pbd_particle']:
-                particles_now_pos_in_gs = self.objs[obj_idx].solver.particles.pos.to_numpy()
-                if len(particles_now_pos_in_gs.shape) == 4:
-                    particles_now_pos_in_gs = particles_now_pos_in_gs[0, self.objs[obj_idx].particle_start:self.objs[obj_idx].particle_end, 0]
-                else:
-                    particles_now_pos_in_gs = particles_now_pos_in_gs[self.objs[obj_idx].particle_start:self.objs[obj_idx].particle_end, 0]
-                
+            elif per_material_type in ['sph_liquid', 'pbd_liquid', 'pbd_cloth', 'mpm_sand', 'mpm_liquid', 'mpm_elastic', 'mpm_snow', 'mpm_elastic2plastic', 'pbd_elastic', 'pbd_particle']:
+                particles_now_pos_in_gs = self.objs[obj_idx].get_particles()[0]
                 particles_start_pos_in_gs = self.objs[obj_idx].init_particles
 
                 particles_now_pos_in_gs = torch.tensor(particles_now_pos_in_gs).to(self.device)
@@ -278,7 +351,7 @@ class DiffSim(nn.Module):
                 particles_change_pos_in_gs = particles_now_pos_in_gs - particles_start_pos_in_gs
                 points_change_pos_in_gs = particles_change_pos_in_gs[self.closest_indices[obj_idx]]
                 points_change_pos_in_gs = points_change_pos_in_gs.mean(dim=1)
-                updated_points = self.fg_pcs[obj_idx]['points'] + points_change_pos_in_gs
+                updated_points = self.initial_fg_pcs[obj_idx]['points'] + points_change_pos_in_gs
                 updated_points = gs_to_pt3d(updated_points)
                 updated_all_obj_points.append(updated_points)
         
@@ -355,6 +428,7 @@ class DiffSim(nn.Module):
     def get_material_for_each(self, per_material_type):
         if per_material_type == "rigid":
             obj_material = gs.materials.Rigid(
+                needs_coup = False if 'rigid_needs_coup' not in self.config else self.config['rigid_needs_coup'],
                 rho = 1000.0 if 'rigid_rho' not in self.config else self.config['rigid_rho'],
                 friction = 5.0 if 'rigid_friction' not in self.config else self.config['rigid_friction'],
                 coup_friction = 5 if 'rigid_coup_friction' not in self.config else self.config['rigid_coup_friction'],
@@ -366,6 +440,17 @@ class DiffSim(nn.Module):
                 rho = 1000.0 if 'pbd_rho' not in self.config else self.config['pbd_rho'],
                 density_relaxation = 0.2 if 'pbd_density_relaxation' not in self.config else self.config['pbd_density_relaxation'],
                 viscosity_relaxation = 0.1 if 'pbd_viscosity_relaxation' not in self.config else self.config['pbd_viscosity_relaxation'],
+            )
+            obj_vis_mode = "particle"
+
+        elif per_material_type == 'sph_liquid':
+            obj_material = gs.materials.SPH.Liquid(
+                rho = 1000.0 if 'sph_rho' not in self.config else self.config['sph_rho'],
+                stiffness = 50000.0 if 'sph_stiffness' not in self.config else self.config['sph_stiffness'],
+                exponent = 7.0 if 'sph_exponent' not in self.config else self.config['sph_exponent'],
+                mu = 0.005 if 'sph_mu' not in self.config else self.config['sph_mu'],
+                gamma = 0.01 if 'sph_gamma' not in self.config else self.config['sph_gamma'],
+                sampler = 'regular' if 'sph_sampler' not in self.config else self.config['sph_sampler'],
             )
             obj_vis_mode = "particle"
 

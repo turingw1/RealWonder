@@ -1,0 +1,23 @@
+name: realwonder
+channels:
+  - conda-forge
+  - nvidia
+dependencies:
+  - python=3.11
+  - pip
+  - setuptools<81
+  - wheel
+  - git
+  - git-lfs
+  - cmake
+  - ninja
+  - make
+  - pkg-config
+  - ffmpeg
+  - gcc=12
+  - gxx=12
+  - cuda-version=12.1
+  - cuda-cudart-dev=12.1.105
+  - cuda-libraries-dev=12.1.1
+  - cuda-nvcc=12.1.105
+  - cuda-nvrtc-dev=12.1.105

@@ -53,6 +53,43 @@ class InteractiveSimulator:
 
         self._setup_scene()
 
+
+    def _apply_stack_contact_snapping_gs(self):
+        order = self.config.get("stack_order_bottom_to_top", None)
+        if not order:
+            return
+
+        order = [int(idx) for idx in order if int(idx) < len(self.fg_meshes)]
+        if len(order) < 2:
+            return
+
+        clearance = float(self.config.get("stack_contact_clearance_gs", 0.0))
+        source = self.config.get("stack_contact_source", "mesh")
+        deltas = {}
+        for lower_idx, upper_idx in zip(order[:-1], order[1:]):
+            if source == "point_cloud":
+                lower_points = self.fg_pcs_gs[lower_idx]["points"]
+                upper_points = self.fg_pcs_gs[upper_idx]["points"]
+            else:
+                lower_points = self.fg_meshes[lower_idx]["vertices"]
+                upper_points = self.fg_meshes[upper_idx]["vertices"]
+
+            lower_top = lower_points[:, 2].max()
+            upper_bottom = upper_points[:, 2].min()
+            delta_z = lower_top + clearance - upper_bottom
+            delta_gs = torch.zeros(3, device=self.device, dtype=self.fg_meshes[upper_idx]["vertices"].dtype)
+            delta_gs[2] = delta_z
+            delta_pt3d = torch.zeros_like(delta_gs)
+            delta_pt3d[1] = delta_z
+
+            self.fg_meshes[upper_idx]["vertices"] = self.fg_meshes[upper_idx]["vertices"] + delta_gs
+            self.fg_pcs_gs[upper_idx]["points"] = self.fg_pcs_gs[upper_idx]["points"] + delta_gs
+            self.fg_pcs_pt3d[upper_idx]["points"] = self.fg_pcs_pt3d[upper_idx]["points"] + delta_pt3d
+            deltas[int(upper_idx)] = float(delta_z.detach().cpu().item())
+
+        self.config["computed_stack_contact_deltas_gs"] = deltas
+        print(f"[stack_contact] snapped order {order} with source={source}, clearance={clearance:.6f}, deltas={deltas}")
+
     def _setup_scene(self):
         """Load pre-computed data and build Genesis scene."""
         meshes_dir = self.demo_data_path / "fg_meshes"
@@ -87,6 +124,8 @@ class InteractiveSimulator:
 
         for mesh_info in self.fg_meshes:
             mesh_info["vertices"] = pt3d_to_gs(mesh_info["vertices"])
+
+        self._apply_stack_contact_snapping_gs()
 
         cam_data = torch.load(self.demo_data_path / "camera.pt", map_location=self.device)
         bg_data = torch.load(self.demo_data_path / "bg_points.pt", map_location=self.device)
@@ -323,6 +362,8 @@ class InteractiveSimulator:
 
     def step(self, extract_points=True):
         """Run one simulation step with interactive force applied."""
+        self.case_handler.custom_simulation(self.step_count)
+
         if self.demo_case_handler is not None:
             self.demo_case_handler.apply_forces(self, self.step_count)
 

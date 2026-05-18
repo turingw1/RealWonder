@@ -1,0 +1,181 @@
+device: cuda
+seed: 0
+example_name: blocks
+output_folder: result/blocks
+data_path: cases/blocks/
+segmenter: sam2
+all_object_points:
+- - - 256
+    - 170
+    - 1
+  - - 256
+    - 151
+    - 1
+  - - 234
+    - 171
+    - 1
+  - - 281
+    - 171
+    - 1
+  - - 257
+    - 245
+    - 0
+  - - 257
+    - 315
+    - 0
+  - - 257
+    - 386
+    - 0
+  - - 163
+    - 212
+    - 0
+  - - 347
+    - 212
+    - 0
+- - - 256
+    - 245
+    - 1
+  - - 256
+    - 263
+    - 1
+  - - 234
+    - 246
+    - 1
+  - - 281
+    - 246
+    - 1
+  - - 257
+    - 170
+    - 0
+  - - 257
+    - 315
+    - 0
+  - - 257
+    - 386
+    - 0
+  - - 163
+    - 253
+    - 0
+  - - 347
+    - 253
+    - 0
+- - - 256
+    - 315
+    - 1
+  - - 256
+    - 295
+    - 1
+  - - 234
+    - 315
+    - 1
+  - - 281
+    - 315
+    - 1
+  - - 257
+    - 245
+    - 0
+  - - 257
+    - 386
+    - 0
+  - - 257
+    - 170
+    - 0
+  - - 163
+    - 327
+    - 0
+  - - 347
+    - 327
+    - 0
+- - - 256
+    - 386
+    - 1
+  - - 256
+    - 365
+    - 1
+  - - 234
+    - 384
+    - 1
+  - - 281
+    - 384
+    - 1
+  - - 257
+    - 315
+    - 0
+  - - 257
+    - 245
+    - 0
+  - - 257
+    - 170
+    - 0
+  - - 163
+    - 412
+    - 0
+  - - 347
+    - 412
+    - 0
+all_object_masks_idx:
+- 0
+- 0
+- 0
+- 0
+obj_kp_matching: true
+stitched_inpainting: false
+logging_level: details
+debug: false
+mesh_resize_factor: 1.0
+target_faces: 5000
+original_geometry_downsample: true
+use_rgb_frontside: true
+clip_frontside_points_to_segmentation_mask: true
+frontside_segmentation_erode_px: 0
+fill_occluded_submesh_with_mask_median_color: true
+occluded_color_mask_erode_px: 1
+include_occluded_submesh_points: false
+use_primitive_visual_points: true
+primitive_visual_samples_per_axis: 44
+primitive_visual_color_mask_erode_px: 1
+fov_x_input: 42.0
+moge_model_path: /root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt
+genesis_backend: gpu
+dt: 0.01
+substeps: 2
+simulated_frames_num: 81
+frame_steps: 2
+material_type:
+- rigid
+- rigid
+- rigid
+- rigid
+use_primitive: true
+rigid_rho: 750.0
+rigid_friction: 0.55
+plane_friction: 0.9
+plane_rho: 1000.0
+gravity: -9.8
+stack_order_bottom_to_top:
+- 3
+- 2
+- 1
+- 0
+stack_contact_clearance_gs: 0.0
+stack_contact_source: point_cloud
+push_object_index: 2
+push_start_step: 28
+push_force_steps: 12
+push_force_direction_gs:
+- 1.0
+- 0.0
+- 0.0
+push_force_strength: 20.0
+alpha_threshold: 0.99
+crop_start: 213
+fg_points_render_radius: 0.02
+num_output_frames: 21
+denoising_step_list:
+- 300
+- 200
+- 100
+mask_dropin_step: -1
+vgen_prompt: A realistic stack of four wooden toy blocks on a tabletop. The red block
+  is pushed diagonally up and to the right by a force, while the other blocks respond
+  naturally under gravity and contact.

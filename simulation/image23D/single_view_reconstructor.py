@@ -27,7 +27,6 @@ from pathlib import Path
 
 from simulation.image23D.segmenter import RepViTSegmenter, SegmentAnythingSegmenter
 from simulation.image23D.mesh_generator import Sam3DMeshGenerator
-from simulation.image23D.inpainter import FluxInpainter
 
 from pytorch3d.renderer.mesh.textures import TexturesVertex
 
@@ -118,6 +117,48 @@ class SingleViewReconstructor(torch.nn.Module):
         self.fg_objects = []
         self.cache_bg = None
 
+    def _erode_mask(self, mask, erode_px):
+        if erode_px <= 0:
+            return mask.bool()
+
+        mask_np = mask.detach().cpu().numpy().astype(np.uint8)
+        kernel_size = erode_px * 2 + 1
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        eroded = cv2.erode(mask_np, kernel, iterations=1).astype(bool)
+        return torch.from_numpy(eroded).to(mask.device)
+
+    def _masked_image_median_color(self, mask):
+        mask = mask.bool()
+        if not bool(mask.any()):
+            return None
+
+        image_hwc = rearrange(self.input_image, "c h w -> h w c")
+        return image_hwc[mask].median(dim=0).values
+
+    def _make_box_surface_point_cloud(self, vertices, color, samples_per_axis):
+        samples_per_axis = max(2, int(samples_per_axis))
+        lower = vertices.min(dim=0).values
+        upper = vertices.max(dim=0).values
+        axes = [
+            torch.linspace(lower[i], upper[i], samples_per_axis, device=vertices.device, dtype=vertices.dtype)
+            for i in range(3)
+        ]
+
+        faces = []
+        for axis in range(3):
+            other_axes = [i for i in range(3) if i != axis]
+            grid_a, grid_b = torch.meshgrid(axes[other_axes[0]], axes[other_axes[1]], indexing="ij")
+            for side in (lower[axis], upper[axis]):
+                pts = torch.zeros(grid_a.numel(), 3, device=vertices.device, dtype=vertices.dtype)
+                pts[:, axis] = side
+                pts[:, other_axes[0]] = grid_a.reshape(-1)
+                pts[:, other_axes[1]] = grid_b.reshape(-1)
+                faces.append(pts)
+
+        points = torch.cat(faces, dim=0)
+        colors = color.to(device=vertices.device, dtype=vertices.dtype).unsqueeze(0).expand(points.shape[0], -1)
+        return points, colors
+
     def reconstruct(self):
         if 'segmenter' not in self.config or self.config['segmenter'] == "repvit":
             self.object_id = self.config['object_id']
@@ -135,6 +176,7 @@ class SingleViewReconstructor(torch.nn.Module):
         if os.path.exists(inpainted_image_path):
             self.inpainted_image = ToTensor()(Image.open(inpainted_image_path).convert('RGB')).to(self.device)
         else:
+            from simulation.image23D.inpainter import FluxInpainter
             inpainter = FluxInpainter(device=self.device)
             all_objects_masks = torch.zeros_like(self.object_masks[0], dtype=torch.bool)
             for mask in self.object_masks:
@@ -151,7 +193,8 @@ class SingleViewReconstructor(torch.nn.Module):
                 self.inpainted_image_pil.save(os.path.join(self.config['output_folder'], 'inpainted_image.png'))
             
             del inpainter
-            torch.cuda.empty_cache()
+            if torch.device(self.device).type == "cuda":
+                torch.cuda.empty_cache()
 
         if 'stitched_inpainting' in self.config and self.config['stitched_inpainting']:
             # all_dilated_masks = [torch.from_numpy(dilate_binary_mask(per_mask, size=(512, 512), kernel_size=3, iterations=1)).unsqueeze(0).unsqueeze(0).to(self.device) for per_mask in self.object_masks]
@@ -161,7 +204,7 @@ class SingleViewReconstructor(torch.nn.Module):
         if self.config.get('debug', False):
             torchvision_utils.save_image(self.inpainted_image, os.path.join(self.config['output_folder'], 'stitched_inpainted_image.png'))
 
-        self.mesh_generator = Sam3DMeshGenerator(self.config)
+        self.mesh_generator = Sam3DMeshGenerator(self.config, device=self.device)
         self.fg_meshes = []
         self.fg_pcs = []
         for idx, per_mask in enumerate(self.object_masks):
@@ -186,7 +229,8 @@ class SingleViewReconstructor(torch.nn.Module):
                 self.current_camera = self.get_camera_at_origin()
 
                 # background point cloud
-                moge_model = MoGeModel.from_pretrained("Ruicheng/moge-vitl").to(self.device)
+                moge_model_path = self.config.get("moge_model_path", "Ruicheng/moge-vitl")
+                moge_model = MoGeModel.from_pretrained(moge_model_path).to(self.device)
                 moge_model.eval()
                 with torch.no_grad():
                     depth_inpainted = moge_model.infer(self.inpainted_image, fov_x=fx_deg)['depth']
@@ -227,13 +271,44 @@ class SingleViewReconstructor(torch.nn.Module):
 
             per_mask_from_mesh, depth_map, occluded_vertices_mask = render_mesh_with_occlusion_detection(torch.from_numpy(original_mesh.vertices).to(self.device).float(), torch.from_numpy(original_mesh.faces).to(self.device).long(), torch.from_numpy(original_mesh.visual.vertex_colors).to(self.device).float()[:,:3]/255.0, self.current_camera)
             occluded_submesh_vertices, occluded_submesh_faces, occluded_submesh_colors = create_occluded_submesh(torch.from_numpy(original_mesh.vertices).to(self.device).float(), torch.from_numpy(original_mesh.faces).to(self.device).long(), torch.from_numpy(original_mesh.visual.vertex_colors).to(self.device).float()[:,:3]/255.0, occluded_vertices_mask)
-            per_points, per_colors = self.depth2pc(depth_map, self.input_image, per_mask_from_mesh)
+
+            frontside_mask = per_mask_from_mesh
+            if self.config.get('clip_frontside_points_to_segmentation_mask', False):
+                erode_px = int(self.config.get('frontside_segmentation_erode_px', 0))
+                segmentation_mask = self._erode_mask(per_mask, erode_px)
+                clipped_mask = per_mask_from_mesh.bool() & segmentation_mask
+                if bool(clipped_mask.any()):
+                    frontside_mask = clipped_mask
+
+            if self.config.get('fill_occluded_submesh_with_mask_median_color', False):
+                erode_px = int(self.config.get('occluded_color_mask_erode_px', 0))
+                color_mask = self._erode_mask(per_mask, erode_px)
+                median_color = self._masked_image_median_color(color_mask)
+                if median_color is not None:
+                    occluded_submesh_colors[:] = median_color.unsqueeze(0).expand_as(occluded_submesh_colors)
+
+            per_points, per_colors = self.depth2pc(depth_map, self.input_image, frontside_mask)
 
             # occluded_submesh_colors[:] = torch.tensor([216/255.0, 190/255.0, 150/255.0], device=occluded_submesh_colors.device).unsqueeze(0).expand_as(occluded_submesh_colors)
 
-            if self.config.get('use_rgb_frontside', True):
-                merged_per_points = torch.cat([per_points, occluded_submesh_vertices], dim=0)
-                merged_per_colors = torch.cat([per_colors, occluded_submesh_colors], dim=0)
+            if self.config.get('use_primitive_visual_points', False):
+                erode_px = int(self.config.get('primitive_visual_color_mask_erode_px', 0))
+                color_mask = self._erode_mask(per_mask, erode_px)
+                primitive_color = self._masked_image_median_color(color_mask)
+                if primitive_color is None:
+                    primitive_color = per_colors.median(dim=0).values
+                merged_per_points, merged_per_colors = self._make_box_surface_point_cloud(
+                    torch.from_numpy(simplified_mesh.vertices).to(self.device).float(),
+                    primitive_color,
+                    self.config.get('primitive_visual_samples_per_axis', 32),
+                )
+            elif self.config.get('use_rgb_frontside', True):
+                if self.config.get('include_occluded_submesh_points', True):
+                    merged_per_points = torch.cat([per_points, occluded_submesh_vertices], dim=0)
+                    merged_per_colors = torch.cat([per_colors, occluded_submesh_colors], dim=0)
+                else:
+                    merged_per_points = per_points
+                    merged_per_colors = per_colors
             else:
                 merged_per_points = torch.from_numpy(original_mesh.vertices).to(self.device).float()
                 merged_per_colors = torch.from_numpy(original_mesh.visual.vertex_colors).to(self.device).float()[:,:3]/255.0
@@ -286,7 +361,6 @@ class SingleViewReconstructor(torch.nn.Module):
             self.fg_meshes = self.fg_meshes[:-1]
 
         return self.fg_pcs, self.fg_meshes, self.ground_plane_normal, self.config
-        
     def depth2pc(self, depth_map, image, mask=None):
         # initialize the point cloud for background
         kf_camera = self.convert_pytorch3d_kornia(self.current_camera, self.init_focal_length)
@@ -334,9 +408,10 @@ class SingleViewReconstructor(torch.nn.Module):
         transform_matrix_w2c_kornia = pt3d_to_kornia @ transform_matrix_w2c_pt3d
 
         extrinsics = transform_matrix_w2c_kornia.unsqueeze(0)
-        h = torch.tensor([size], device="cuda")
-        w = torch.tensor([size], device="cuda")
-        K = torch.eye(4)[None].to("cuda")
+        device = camera.device
+        h = torch.tensor([size], device=device)
+        w = torch.tensor([size], device=device)
+        K = torch.eye(4, device=device)[None]
         K[0, 0, 2] = size // 2
         K[0, 1, 2] = size // 2
         K[0, 0, 0] = focal_length
@@ -353,8 +428,8 @@ class SingleViewReconstructor(torch.nn.Module):
             K[0, 1, 2] = new_cy
             K[0, 0, 0] = new_fx
             K[0, 1, 1] = new_fy
-            new_h = torch.tensor([new_size], device="cuda")
-            new_w = torch.tensor([new_size], device="cuda")
+            new_h = torch.tensor([new_size], device=device)
+            new_w = torch.tensor([new_size], device=device)
             return PinholeCamera(K, extrinsics, new_h, new_w)
 
         return PinholeCamera(K, extrinsics, h, w)
@@ -466,6 +541,52 @@ class SingleViewReconstructor(torch.nn.Module):
         
         fg_mask_2d = fg_points_mask.squeeze(-1)
         final_rgb = fg_rgb * fg_mask_2d.unsqueeze(-1) + final_rgb * (1.0 - fg_mask_2d.unsqueeze(-1))
+
+        if self.config.get('fg_layered_render', False):
+            final_rgb = base_rgb.clone()
+            overlay_indices = {int(i) for i in self.config.get('fg_overlay_object_indices', [])}
+            layer_order = [i for i in range(len(self.fg_pcs)) if i not in overlay_indices]
+            layer_order += [i for i in range(len(self.fg_pcs)) if i in overlay_indices]
+            object_alphas = self.config.get('fg_object_alphas', [])
+            object_threshold = float(self.config.get('fg_object_alpha_threshold', 0.2))
+            layer_radius = float(self.config.get('fg_layer_render_radius', self.config.get('fg_points_render_radius', 0.01)))
+            layer_points_per_pixel = int(self.config.get('fg_layer_points_per_pixel', 30))
+
+            for obj_idx in layer_order:
+                pc_info = self.fg_pcs[obj_idx]
+                points = pc_info['points']
+                colors = pc_info['colors']
+                if points.numel() == 0:
+                    continue
+
+                obj_alpha = 1.0
+                if obj_idx < len(object_alphas):
+                    obj_alpha = float(object_alphas[obj_idx])
+                if obj_idx in overlay_indices:
+                    obj_alpha = float(self.config.get('fg_overlay_alpha', obj_alpha))
+
+                obj_rgba = torch.cat([
+                    colors,
+                    torch.ones_like(colors[..., :1]),
+                ], dim=-1)
+                obj_pc = Pointclouds(points=[points], features=[obj_rgba])
+                obj_raster_settings = PointsRasterizationSettings(
+                    image_size=image_size,
+                    radius=layer_radius,
+                    points_per_pixel=layer_points_per_pixel,
+                    max_points_per_bin=20000,
+                    bin_size=0,
+                )
+                obj_rasterizer = PointsRasterizer(cameras=cameras, raster_settings=obj_raster_settings)
+                obj_renderer = PointsRenderer(
+                    rasterizer=obj_rasterizer,
+                    compositor=AlphaCompositor(),
+                )
+                obj_image = obj_renderer(obj_pc)[0]
+                obj_rgb = obj_image[..., :3]
+                obj_mask = (obj_image[..., 3:4] > object_threshold).float()
+                blend = obj_mask * obj_alpha
+                final_rgb = obj_rgb * blend + final_rgb * (1.0 - blend)
 
         ### 4. Render mesh
         mesh_mask = torch.zeros(image_size, image_size, 1, dtype=torch.float32, device=self.device)
@@ -658,6 +779,12 @@ class SingleViewReconstructor(torch.nn.Module):
         prev_uv = self._proj_uv(prev_fg_points, prev_camera, image_size)
         
         delta_uv = current_uv - prev_uv
+        max_flow_magnitude = self.config.get('max_flow_magnitude', None)
+        if max_flow_magnitude is not None:
+            max_flow_magnitude = float(max_flow_magnitude)
+            magnitude = torch.linalg.norm(delta_uv, dim=-1, keepdim=True)
+            scale = torch.clamp(max_flow_magnitude / torch.clamp(magnitude, min=1e-6), max=1.0)
+            delta_uv = delta_uv * scale
 
         delta_uv_3d = torch.cat([delta_uv, torch.zeros_like(delta_uv[:, :1])], dim=-1)
         

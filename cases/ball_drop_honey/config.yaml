@@ -1,0 +1,124 @@
+device: "cuda"
+seed: 22
+example_name: "ball_drop_honey"
+output_folder: "result/ball_drop_honey"
+data_path: "cases/ball_drop_honey/"
+
+all_object_points:
+  - [[256, 360, 1], [128, 360, 1], [384, 360, 1], [256, 285, 1], [256, 455, 1], [64, 300, 1], [448, 300, 1], [256, 98, 0], [256, 205, 0], [256, 238, 0], [80, 120, 0]]
+  - [[256, 98, 1], [244, 92, 1], [268, 104, 1], [256, 270, 0], [256, 180, 0], [210, 98, 0], [304, 98, 0], [256, 42, 0]]
+
+segmenter: "sam2"
+all_object_masks_idx: [0, 0]
+
+obj_kp_matching: true
+obj_kp:
+  - [[0.2, 0.8], [0.25, 0.75]]
+  - [[0.35, 0.65], [0.35, 0.65]]
+
+logging_level: "details"
+debug: false
+stitched_inpainting: false
+mesh_resize_factor: 0.9
+target_faces: 2200
+fov_x_input: 50.0
+moge_model_path: "/root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt"
+
+dt: 0.004
+substeps: 10
+simulated_frames_num: 81
+frame_steps: 2
+material_type: ["sph_liquid", "rigid"]
+object_offsets_gs:
+  - [0.0, 0.0, 0.0]
+  - [0.0, 0.0, 0.0]
+
+particle_size: 0.020
+pbd_gravity: -6.0
+sph_gravity: -6.0
+gravity: -6.0
+pbd_density_relaxation: 0.2
+sph_particle_size: 0.022
+sph_pressure_solver: "WCSPH"
+sph_sampler: "regular"
+sph_rho: 1400
+sph_stiffness: 70000.0
+sph_exponent: 7.0
+sph_mu: 0.080
+sph_gamma: 0.045
+
+rigid_rho: 4800
+rigid_needs_coup: true
+rigid_friction: 0.08
+rigid_coup_softness: 0.0015
+plane_friction: 1.0
+plane_coup_friction: 1.0
+plane_coup_softness: 0.0015
+
+ball_color: [0.05, 0.05, 0.055, 1.0]
+liquid_min_size: [0.55, 0.45, 0.060]
+liquid_max_size: [1.35, 1.35, 0.14]
+liquid_size_scale: [1.00, 1.00, 0.35]
+liquid_height: 0.105
+liquid_anchor: "top"
+liquid_top_offset: -0.004
+liquid_enable_tray_walls: true
+liquid_enable_tray_bottom: true
+liquid_tray_visible: false
+liquid_tray_wall_height: 0.20
+liquid_tray_wall_thickness: 0.024
+liquid_tray_clearance: 0.008
+liquid_tray_xy_clearance: 0.008
+liquid_tray_bottom_clearance: 0.0015
+liquid_tight_simulation_bounds: true
+ball_drop_bounds_margin: 0.080
+liquid_debug_particle_bounds: false
+liquid_debug_particle_bounds_interval: 20
+ball_radius: 0.070
+ball_surface_gap: 0.055
+ball_snap_above_liquid: true
+ball_lock_xy: true
+ball_initial_velocity: [0.0, 0.0, -1.2]
+ball_limit_sink: false
+ball_sink_start_depth: 0.006
+ball_sink_speed_per_step: 0.00055
+ball_max_sink_depth: 0.075
+ball_drive_sink: false
+ball_drive_sink_trigger_margin: 0.015
+ball_drive_sink_start_depth: 0.006
+ball_drive_sink_speed_per_step: 0.00040
+ball_drive_sink_max_depth: 0.050
+liquid_splash_enabled: false
+liquid_hold_until_splash: true
+liquid_splash_trigger_margin: 0.006
+liquid_splash_frames: 18
+liquid_splash_radius: 0.16
+liquid_splash_surface_band: 0.030
+liquid_splash_up_strength: 0.006
+liquid_splash_out_strength: 0.002
+liquid_splash_up_velocity: 0.08
+liquid_splash_out_velocity: 0.02
+
+remap_depth: [1.0, 2.0]
+closest_points_num: 2
+crop_start: 100
+alpha_threshold: 0.92
+fg_points_render_radius: 0.007
+fg_layered_render: true
+fg_object_alphas: [0.60, 1.0]
+fg_overlay_object_indices: [1]
+fg_overlay_alpha: 1.0
+fg_object_alpha_threshold: 0.15
+fg_layer_render_radius: 0.007
+fg_layer_points_per_pixel: 30
+max_flow_magnitude: 64.0
+noise_flow_source: "genesis"
+
+num_output_frames: 21
+denoising_step_list: [800, 500, 250]
+mask_dropin_step: -1
+pbd_rho: 1400
+pbd_viscosity_relaxation: 0.25
+rigid_coup_friction: 0.55
+liquid_color: [1.0, 0.55, 0.03, 0.72]
+vgen_prompt: "A small rigid ball falls into a thick golden honey surface. The honey deforms slowly and sticks to the ball, with high viscosity and sluggish fluid motion. Static side view, simple white background, realistic physics."

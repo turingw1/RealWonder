@@ -1,0 +1,104 @@
+device: cuda
+seed: 0
+example_name: towel_folding
+output_folder: result/towel_folding
+data_path: cases/towel_folding
+segmenter: sam2
+all_object_points:
+- - - 256
+    - 300
+    - 1
+  - - 150
+    - 235
+    - 1
+  - - 370
+    - 235
+    - 1
+  - - 108
+    - 388
+    - 1
+  - - 424
+    - 388
+    - 1
+  - - 65
+    - 92
+    - 0
+  - - 462
+    - 105
+    - 0
+  - - 43
+    - 248
+    - 0
+  - - 486
+    - 500
+    - 0
+  - - 252
+    - 82
+    - 0
+all_object_masks_idx:
+- 0
+obj_kp_matching: true
+debug: false
+stitched_inpainting: true
+mesh_resize_factor: 0.92
+original_geometry_downsample: true
+target_faces: 2400
+fov_x_input: 50.0
+moge_model_path: /root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt
+dt: 0.01
+substeps: 12
+simulated_frames_num: 96
+frame_steps: 2
+material_type:
+- pbd_cloth
+inpainting_negative_prompt: towel, cloth, fabric, object
+inpainting_prompt: warm wooden dining table in a cozy home interior, no towel, no cloth
+pbd_rho: 0.65
+pbd_static_friction: 0.9
+pbd_kinetic_friction: 0.35
+pbd_stretch_compliance: 0.006
+pbd_bending_compliance: 0.12
+pbd_stretch_relaxation: 0.65
+pbd_bending_relaxation: 0.18
+pbd_air_resistance: 0.003
+# Vector is specified in RealWonder/PyTorch3D coordinates, then converted to Genesis.
+# This becomes approximately Genesis (0, -0.22, 0), pressing the camera-facing
+# cloth proxy against the table/support plane without pinning particles.
+pbd_gravity:
+- 0.0
+- 0.0
+- -0.22
+gravity:
+- 0.0
+- 0.0
+- -0.22
+particle_size: 0.007
+alpha_threshold: 0.98
+crop_start: 176
+fg_points_render_radius: 0.01
+num_output_frames: 21
+denoising_step_list:
+- 750
+- 500
+- 250
+mask_dropin_step: -1
+table_plane_axis: y
+table_plane_y_offset: 0.006
+plane_friction: 5.0
+plane_coup_friction: 5.0
+plane_coup_softness: 0.001
+fold_grip_edge_band: 0.50
+fold_grip_edge_margin: 0.02
+fold_half_crease_x_norm: 0.50
+fold_quarter_crease_z_norm: 0.50
+fold_half_phase_end: 0.50
+fold_half_settle_end: 0.62
+fold_quarter_phase_end: 0.90
+fold_velocity_damping: 0.90
+fold_handle_position_blend: 0.28
+fold_handle_hold_blend: 0.08
+fold_velocity_gain: 2.5
+fold_arc_lift_scale: 0.55
+fold_landing_y_offset: 0.010
+fold_max_control_delta: 0.018
+vgen_prompt: A square cotton towel on a wooden dining table is folded in a realistic home setting. The left half folds over to make a half rectangle, then the lower half folds upward to make a quarter-folded towel. Static camera, natural daylight, visible table friction, no hands and no robot visible.

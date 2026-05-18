@@ -1,0 +1,113 @@
+device: cuda
+seed: 0
+example_name: tshirt_folding
+output_folder: result/tshirt_folding_ref
+data_path: /root/autodl-tmp/Physics_worldmodel/RealWonder/cases/tshirt_folding_ref
+segmenter: sam2
+all_object_points:
+- - - 266
+    - 282
+    - 1
+  - - 241
+    - 346
+    - 1
+  - - 272
+    - 231
+    - 1
+  - - 155
+    - 217
+    - 1
+  - - 430
+    - 245
+    - 1
+  - - 311
+    - 197
+    - 0
+  - - 111
+    - 152
+    - 0
+  - - 443
+    - 149
+    - 0
+  - - 46
+    - 357
+    - 0
+  - - 491
+    - 344
+    - 0
+all_object_masks_idx:
+- 0
+obj_kp_matching: true
+debug: false
+stitched_inpainting: true
+mesh_resize_factor: 0.85
+original_geometry_downsample: true
+target_faces: 1800
+fov_x_input: 50.0
+moge_model_path: /root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt
+fix_collar: true
+fixed_top_band: 0.09
+fixed_center_width: 0.34
+dt: 0.01
+substeps: 10
+simulated_frames_num: 54
+frame_steps: 2
+material_type:
+- pbd_cloth
+inpainting_negative_prompt: shirt, t-shirt, cloth, object
+inpainting_prompt: wooden tabletop background, no clothing
+pbd_rho: 0.5
+pbd_gravity: -0.15
+pbd_static_friction: 0.9
+pbd_kinetic_friction: 0.25
+pbd_stretch_compliance: 0.006
+pbd_bending_compliance: 0.12
+pbd_stretch_relaxation: 0.55
+pbd_bending_relaxation: 0.08
+pbd_air_resistance: 0.002
+particle_size: 0.008
+alpha_threshold: 0.98
+crop_start: 176
+fg_points_render_radius: 0.01
+num_output_frames: 21
+denoising_step_list:
+- 750
+- 500
+- 250
+mask_dropin_step: -1
+fold_strategy: flip_then_drag_fold
+fold_test_mode: flip_then_drag
+fold_grasp_side: right
+fold_side_phase_end: 0.62
+fold_bottom_phase_end: 0.92
+fold_velocity_damping: 0.92
+fold_side_strength: 5.5
+fold_bottom_strength: 5.5
+fold_flip_position_blend: 0.26
+fold_flip_max_control_delta: 0.02
+fold_flip_lift_scale: 0.55
+fold_bottom_flip_lift_scale: 0.52
+fold_handle_edge_band: 0.075
+fold_handle_z_min: 0.18
+fold_handle_z_max: 0.86
+fold_bottom_corner_x_band: 0.16
+fold_bottom_corner_z_max: 0.2
+fold_side_landing_x_norm: 0.42
+fold_side_landing_z_shift: 0.0
+fold_handle_lift_amount: 0.12
+fold_landing_y_offset: 0.16
+fold_handle_position_blend: 0.4
+fold_handle_hold_blend: 0.18
+fold_passive_carry_start_x_norm: 0.78
+fold_passive_drag_blend: 0.014
+fold_passive_drag_strength: 0.2
+fold_bottom_handle_z_band: 0.12
+fold_bottom_handle_x_min: 0.26
+fold_bottom_handle_x_max: 0.74
+fold_bottom_landing_z_norm: 0.56
+fold_bottom_lift_amount: 0.1
+fold_bottom_position_blend: 0.34
+vgen_prompt: A realistic light gray cotton T-shirt is folded on a wooden table in
+  a warm home interior. The sleeves and side region flip inward, then the lower body
+  folds upward, with soft wrinkles, cloth inertia, and natural settling. Static camera,
+  photorealistic domestic background.

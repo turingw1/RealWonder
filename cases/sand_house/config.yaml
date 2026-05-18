@@ -14,7 +14,7 @@ obj_kp: [[[0.2, 0.8], [0.1, 0.9]]]
 
 logging_level: "details"
 
-debug: true
+debug: false
 stitched_inpainting: false
 
 mesh_resize_factor: 1.0
@@ -22,6 +22,8 @@ mesh_resize_factor: 1.0
 remap_depth: [1.0, 2.0]
 
 target_faces: 10000
+
+moge_model_path: "/root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt"
 
 dt: 0.01
 substeps: 10

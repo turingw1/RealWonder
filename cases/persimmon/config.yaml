@@ -15,7 +15,7 @@ obj_kp_matching: true
 stitched_inpainting: false
 
 logging_level: "details"
-debug: true
+debug: false
 
 mesh_resize_factor: 1.0
 
@@ -41,6 +41,8 @@ fg_points_render_radius: 0.02
 original_geometry_downsample: true
 target_faces: 5000
 use_rgb_frontside: true
+fov_x_input: 31.97744369506836
+moge_model_path: "/root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt"
 
 num_output_frames: 21
 denoising_step_list: [300, 200, 100]

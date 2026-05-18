@@ -16,9 +16,6 @@ stitched_inpainting: false
 
 mesh_resize_factor: 1.0
 
-original_geometry_downsample: true
-target_faces: 1000
-
 dt: 0.01
 substeps: 20
 simulated_frames_num: 81
@@ -42,11 +39,11 @@ crop_start: 176
 
 fg_points_render_radius: 0.01
 
-use_rgb_frontside: false
-
 original_geometry_downsample: true
 target_faces: 5000
 use_rgb_frontside: false
+fov_x_input: 88.33694458007812
+moge_model_path: "/root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt"
 
 num_output_frames: 21
 denoising_step_list: [750, 500, 250]

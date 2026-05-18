@@ -1,0 +1,102 @@
+device: cuda
+seed: 0
+example_name: tshirt_folding
+output_folder: result/tshirt_folding
+data_path: cases/tshirt_folding/
+segmenter: sam2
+all_object_points:
+- - - 256
+    - 310
+    - 1
+  - - 140
+    - 245
+    - 1
+  - - 370
+    - 245
+    - 1
+  - - 255
+    - 420
+    - 1
+  - - 255
+    - 95
+    - 0
+  - - 55
+    - 455
+    - 0
+  - - 470
+    - 455
+    - 0
+all_object_masks_idx:
+- 0
+obj_kp_matching: true
+debug: false
+stitched_inpainting: true
+mesh_resize_factor: 0.85
+original_geometry_downsample: true
+target_faces: 1800
+fov_x_input: 50.0
+moge_model_path: /root/autodl-tmp/Physics_worldmodel/RealWonder/submodules/sam_3d_objects/checkpoints/moge-vitl/model.pt
+fix_collar: true
+fixed_top_band: 0.09
+fixed_center_width: 0.34
+dt: 0.01
+substeps: 10
+simulated_frames_num: 45
+frame_steps: 2
+material_type:
+- pbd_cloth
+inpainting_negative_prompt: shirt, t-shirt, cloth, object
+inpainting_prompt: wooden tabletop background, no clothing
+pbd_rho: 0.5
+pbd_gravity: -0.15
+pbd_static_friction: 0.9
+pbd_kinetic_friction: 0.25
+pbd_stretch_compliance: 0.006
+pbd_bending_compliance: 0.12
+pbd_stretch_relaxation: 0.55
+pbd_bending_relaxation: 0.08
+pbd_air_resistance: 0.002
+particle_size: 0.008
+alpha_threshold: 0.98
+crop_start: 215
+fg_points_render_radius: 0.01
+num_output_frames: 21
+denoising_step_list:
+- 750
+- 500
+- 250
+mask_dropin_step: -1
+# Endpoint-gripper fold controller. This avoids prescribing a full side panel
+# shape; the side seam/corner and lower hem are moved as virtual contact handles.
+fold_strategy: handle_pull
+fold_test_mode: side_lift_only
+fold_grasp_side: right
+fold_side_phase_end: 0.82
+fold_bottom_phase_end: 0.96
+fold_velocity_damping: 0.92
+fold_side_strength: 5.5
+fold_bottom_strength: 0.0
+fold_handle_edge_band: 0.075
+fold_handle_z_min: 0.18
+fold_handle_z_max: 0.86
+fold_bottom_corner_x_band: 0.16
+fold_bottom_corner_z_max: 0.20
+fold_side_landing_x_norm: 0.94
+fold_side_landing_z_shift: 0.0
+fold_handle_lift_amount: 0.10
+fold_landing_y_offset: 0.22
+fold_handle_position_blend: 0.42
+fold_handle_hold_blend: 0.20
+fold_passive_carry_start_x_norm: 0.82
+fold_passive_drag_blend: 0.018
+fold_passive_drag_strength: 0.18
+fold_bottom_handle_z_band: 0.0
+fold_bottom_handle_x_min: 0.30
+fold_bottom_handle_x_max: 0.72
+fold_bottom_landing_z_norm: 0.58
+fold_bottom_lift_amount: 0.0
+fold_bottom_position_blend: 0.0
+vgen_prompt: A realistic teal cotton T-shirt is folded on a wooden laundry table.
+  The right side seam is gently lifted upward by a small gripper while the rest
+  of the shirt stays on the wooden table, with soft wrinkles, cloth inertia, and
+  natural fabric settling. Static camera, photorealistic laundry room background.

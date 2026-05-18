@@ -6,6 +6,7 @@ ckpts
 .claude
 trained_ckpts
 datasets/
+data_demos/
 result*
 vgen_results/
 debug/

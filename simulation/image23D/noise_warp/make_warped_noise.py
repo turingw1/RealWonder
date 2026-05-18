@@ -7,14 +7,10 @@
 #    The first time you run this it might be a bit slow (it will download necessary models)
 #    The `rp` package will take care of installing the rest of the python packages for you
 
-from huggingface_hub.inference._generated.types import video_classification
 import rp
-import shutil
-import os
 
 rp.r._pip_import_autoyes=True #Automatically install missing packages
 
-rp.git_import('CommonSource') #If missing, installs code from https://github.com/RyannDaGreat/CommonSource
 import simulation.image23D.noise_warp.noise_warp as nw
 import numpy as np
 
@@ -113,7 +109,16 @@ class NoiseWarper:
     #     return output.numpy_noises
     
 
-    def process(self, video, output_folder:str, input_flow = True, crop_start = 120, debug = False, device=None):
+    def process(
+        self,
+        video,
+        output_folder: str,
+        input_flow=True,
+        crop_start=120,
+        debug=False,
+        device=None,
+        raft_version="large",
+    ):
 
         FLOW = 2 ** 3
         LATENT = 8
@@ -159,6 +164,7 @@ class NoiseWarper:
             resize_flow=FLOW,
             downscale_factor= round(FRAME * FLOW) * LATENT,
             device=device,
+            raft_version=raft_version,
         )
 
         if debug:
